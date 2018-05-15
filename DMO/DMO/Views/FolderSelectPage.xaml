@@ -1,0 +1,54 @@
+﻿<Page x:Class="DMO.Views.FolderSelectPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:local="using:DMO.Views"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      xmlns:models="using:DMO.Models"
+      xmlns:services="using:DMO.Services"
+      xmlns:converters="using:DMO.Converters"
+      xmlns:vm="using:DMO.ViewModels"
+      mc:Ignorable="d">
+
+    <Page.Resources>
+        <converters:TopThicknessConverter x:Key="TopThicknessConverter"/>
+    </Page.Resources>
+
+    <Page.DataContext>
+        <vm:FolderSelectViewModel x:Name="ViewModel" />
+    </Page.DataContext>
+
+
+    <Grid Background="{ThemeResource SystemControlAcrylicElementMediumHighBrush}">
+
+        <RelativePanel VerticalAlignment="Center"
+                       HorizontalAlignment="Center">
+
+            <TextBox x:Name="tb_FolderPath"
+                     MinWidth="500"
+                     IsTapEnabled="False"
+                     IsReadOnly="True"
+                     Text="{x:Bind ViewModel.GalleryFolder.FolderPath, Mode=OneWay}" />
+
+            <Button RelativePanel.RightOf="tb_FolderPath"
+                    Margin="16, 0, 0, 0"
+                    Click="{x:Bind ViewModel.PickFolder}">
+                <SymbolIcon Symbol="Folder" />
+            </Button>
+
+            <Button RelativePanel.Below="tb_FolderPath"
+                    RelativePanel.AlignHorizontalCenterWithPanel="True"
+                    Height="50"
+                    Width="50"
+                    IsEnabled="{x:Bind ViewModel.GalleryFolder.IsFolderChosen, Mode=OneWay}"
+                    Background="Green"
+                    Margin="0, 64, 0, 0"
+                    Click="{x:Bind ViewModel.GotoGalleryPage}">
+                <SymbolIcon Symbol="Forward" />
+            </Button>
+
+        </RelativePanel>
+
+    </Grid>
+
+</Page>
