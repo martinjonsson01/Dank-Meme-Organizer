@@ -27,8 +27,7 @@
                       AutoPlay="False"
                       MediaOpened="MediaElement_MediaOpened"
                       MediaEnded="MediaElement_MediaEnded"
-                      MediaFailed="MediaElement_MediaFailed"
-                      PosterSource="{x:Bind Thumbnail, Mode=OneWay}"/>
+                      MediaFailed="MediaElement_MediaFailed"/>
 
         <StackPanel Orientation="Horizontal"
                     Background="White"

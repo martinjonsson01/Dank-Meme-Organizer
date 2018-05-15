@@ -19,13 +19,27 @@ namespace DMO.ViewModels
 {
     public class GalleryPageViewModel : ViewModelBase
     {
+        private Gallery _gallery;
         #region Public Properties
 
-        public Gallery Gallery { get; private set; }
+        public Gallery Gallery {
+            get => _gallery;
+            private set
+            {
+                _gallery = value;
+                _gallery.PropertyChanged += (sender, property) =>
+                {
+                    if (property.PropertyName == "FilesFound")
+                    {
+                        RaisePropertyChanged(nameof(LoadingProgressStatus));
+                    }
+                };
+            }
+        }
 
         public int TileSize { get; set; } = 256;
 
-        public bool IsMediaLoading { get; set; }
+        public bool IsMediaLoading { get; set; } = true;
 
         public AdvancedCollectionView SearchResults { get; set; }
 
@@ -57,6 +71,7 @@ namespace DMO.ViewModels
                     "Dank Memes",
                     "Rare Pepes",
                     "Your Mom",
+                    "H E N T A I",
                 };
                 var random = new Random();
                 var index = random.Next(0, options.Length);
@@ -64,6 +79,8 @@ namespace DMO.ViewModels
                 return $"Search for {searchFor}";
             }
         }
+
+        public string LoadingProgressStatus => $"{Gallery?.FilesFound ?? 0} Dank Memes located so far...";
 
         #endregion
 

@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Threading;
 using Windows.Media.Core;
 using Windows.Storage.AccessCache;
+using Windows.Storage.FileProperties;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Input;
@@ -23,23 +24,14 @@ namespace DMO.Controls
 
         private MediaSource _mediaSource;
 
-        public string MediaFileUid
+        public string FileName
         {
-            get => GetValue(MediaFileUidProperty)?.ToString();
-            set => SetValue(MediaFileUidProperty, value);
+            get => GetValue(FileNameProperty)?.ToString();
+            set => SetValue(FileNameProperty, value);
         }
 
-        public static readonly DependencyProperty MediaFileUidProperty =
-          DependencyProperty.Register(nameof(MediaFileUid), typeof(string), typeof(MediaPlayerHover), null);
-
-        public BitmapImage Thumbnail
-        {
-            get => (BitmapImage)GetValue(ThumbnailProperty);
-            set => SetValue(ThumbnailProperty, value);
-        }
-
-        public static readonly DependencyProperty ThumbnailProperty =
-          DependencyProperty.Register(nameof(Thumbnail), typeof(BitmapImage), typeof(MediaPlayerHover), null);
+        public static readonly DependencyProperty FileNameProperty =
+          DependencyProperty.Register(nameof(FileName), typeof(string), typeof(MediaPlayerHover), null);
 
         public bool IsLoaded => !Suspended;
 
@@ -72,21 +64,23 @@ namespace DMO.Controls
         {
             PropertyChanged(this, new PropertyChangedEventArgs(name));
 
-            if (name == nameof(MediaFileUid))
+            if (name == nameof(FileName))
             {
-                try
+                if (MediaElement != null)
                 {
                     // Apply volume.
                     MediaElement.Volume = SettingsService.Instance.MediaVolume;
-                    // Get media file using UID.
-                    var mediaFile = await StorageApplicationPermissions.FutureAccessList.GetFileAsync(MediaFileUid);
+                    // Get media file using file name.
+                    var mediaFile = App.Files[FileName];
+                    // Load thumbnail.
+                    var thumbnail = await mediaFile.GetThumbnailAsync(ThumbnailMode.SingleItem);
+                    // Apply poster source.
+                    var thumbnailBitmap = new BitmapImage();
+                    MediaElement.PosterSource = thumbnailBitmap;
+                    await thumbnailBitmap.SetSourceAsync(thumbnail);
                     _mediaSource = MediaSource.CreateFromStorageFile(mediaFile);
                     // Open stream to media file and set as source for video.
                     MediaElement.SetPlaybackSource(_mediaSource);
-                }
-                catch (Exception e)
-                {
-                    Debug.WriteLine($"{MediaFileUid} : {e}");
                 }
             }
         }
@@ -125,7 +119,7 @@ namespace DMO.Controls
 
         private void MediaElement_MediaFailed(object sender, ExceptionRoutedEventArgs e)
         {
-            Debug.WriteLine($"{MediaFileUid} : {e}");
+            Debug.WriteLine($"{FileName} : {e}");
         }
     }
 }

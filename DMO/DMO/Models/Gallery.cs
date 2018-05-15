@@ -24,6 +24,8 @@ namespace DMO.Models
 
         public ObservableCollection<MediaData> MediaDatas { get; }
 
+        public int FilesFound { get; set; }
+
         #endregion
 
         #region Constructor
@@ -46,7 +48,7 @@ namespace DMO.Models
             {
                 var sw = new Stopwatch();
                 sw.Start();
-                var queryOptions = new QueryOptions
+                var queryOptions = new QueryOptions(CommonFileQuery.DefaultQuery, FileTypes.Extensions)
                 {
                     FolderDepth = FolderDepth.Deep,
                     IndexerOption = IndexerOption.UseIndexerWhenAvailable,
@@ -60,6 +62,7 @@ namespace DMO.Models
                 var query = folder.CreateFileQueryWithOptions(queryOptions);
 
                 var mediaFiles = await query.GetFilesAsync();
+                FilesFound = mediaFiles.Count;
                 sw.Stop();
                 Debug.WriteLine($"File query completed! Elapsed time: {sw.ElapsedMilliseconds} ms {mediaFiles.Count} files found.");
 
@@ -67,7 +70,7 @@ namespace DMO.Models
                 sw.Start();
                 foreach (var mediaFile in mediaFiles)
                 {
-                    if (FileTypes.MIMEIsSupported(mediaFile.ContentType))
+                    if (FileTypes.IsSupportedMIME(mediaFile.ContentType))
                         await AddFile(imageSize, mediaFile);
                 }
                 sw.Stop();
@@ -90,6 +93,9 @@ namespace DMO.Models
             }
             MediaDatas.Add(data);
 
+            if (!App.Files.ContainsKey(mediaFile.Name))
+                App.Files.Add(mediaFile.Name, mediaFile);
+
             await ApplyThumbnails(imageSize, mediaFile, data);
         }
 
@@ -104,7 +110,7 @@ namespace DMO.Models
                     using (var gifStream = await mediaFile.OpenReadAsync())
                     {
                         // Can't use thumbnail for gifs since they are animated, so use a data stream instead.
-                        await data.Thumbnail.SetSourceAsync(gifStream);
+                        //await data.Thumbnail.SetSourceAsync(gifStream);
                     }
                     break;
                 default:
@@ -112,38 +118,34 @@ namespace DMO.Models
                     var thumbnail = await mediaFile.GetThumbnailAsync(ThumbnailMode.SingleItem, (uint)imageSize, ThumbnailOptions.ResizeThumbnail);
 
                     // Thumbnails for everything but gifs do not need to be animated so a static thumbnail is fine.
-                    await data.Thumbnail.SetSourceAsync(thumbnail);
+                    //await data.Thumbnail.SetSourceAsync(thumbnail);
                     break;
             }
         }
 
         public MediaData CreateMediaData(StorageFile mediaFile)
         {
-            // Create an empty bitmap now that will be filled in later.
-            // This allows XAML to perform some optimizations.
-            var thumbnailBitmap = new BitmapImage();
-
             //
             // Instantiate MediaData type depending on FileType.
             //
             if (mediaFile.FileType == ".gif")
             {
-                return new GifData(mediaFile, thumbnailBitmap);
+                return new GifData(mediaFile);
             }
             else if (mediaFile.IsVideo())
             {
                 // Generate deterministic UID for file.
-                var uid = new Uri(mediaFile.Path).AbsolutePath;
+                /*var uid = new Uri(mediaFile.Path).AbsolutePath;
                 // If uid is over character limit shorten it from the right side so it keeps its uniqueness.
                 if (uid.Length >= 260)
                     uid = uid.Substring(uid.Length - 261, uid.Length - 1);
                 // Store file for future access.
-                StorageApplicationPermissions.FutureAccessList.AddOrReplace(uid, mediaFile);
-                return new VideoData(mediaFile, uid, thumbnailBitmap);
+                StorageApplicationPermissions.FutureAccessList.AddOrReplace(uid, mediaFile);*/
+                return new VideoData(mediaFile);
             }
             else
             {
-                return new ImageData(mediaFile, thumbnailBitmap);
+                return new ImageData(mediaFile);
             }
         }
 

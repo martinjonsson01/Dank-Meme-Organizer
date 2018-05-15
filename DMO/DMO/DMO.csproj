@@ -99,6 +99,9 @@
     </Compile>
     <Compile Include="Behaviours\EndDropBehaviour.cs" />
     <Compile Include="Behaviours\StartingMediaDataDragBehaviour.cs" />
+    <Compile Include="Controls\FastImage.xaml.cs">
+      <DependentUpon>FastImage.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Controls\FileNameTextBox.xaml.cs">
       <DependentUpon>FileNameTextBox.xaml</DependentUpon>
     </Compile>
@@ -246,6 +249,10 @@
     </ApplicationDefinition>
   </ItemGroup>
   <ItemGroup>
+    <Page Include="Controls\FastImage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="Controls\FileNameTextBox.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>

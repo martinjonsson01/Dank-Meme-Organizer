@@ -10,6 +10,7 @@ using Windows.ApplicationModel;
 using Windows.Storage.AccessCache;
 using System.Collections.Generic;
 using Windows.UI.Xaml;
+using Windows.Storage;
 
 namespace DMO
 {
@@ -18,6 +19,8 @@ namespace DMO
     [Bindable]
     public sealed partial class App : BootStrapper
     {
+        public static Dictionary<string, StorageFile> Files = new Dictionary<string, StorageFile>();
+
         public App()
         {
             InitializeComponent();
@@ -40,7 +43,7 @@ namespace DMO
         public override async Task OnStartAsync(StartKind startKind, IActivatedEventArgs args)
         {
             // TODO: add your long-running task here
-
+            SettingsService.Instance.FolderPath = null;
             // If no folder path has been set, have the user select one.
             if (string.IsNullOrEmpty(SettingsService.Instance.FolderPath))
                 await NavigationService.NavigateAsync(typeof(Views.FolderSelectPage));

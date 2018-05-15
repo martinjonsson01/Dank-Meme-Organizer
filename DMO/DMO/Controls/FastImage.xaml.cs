@@ -1,15 +1,26 @@
-﻿using DMO.Services.SettingsServices;
-using System;
+﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel;
+using System.IO;
+using System.Linq;
+using System.Runtime.InteropServices.WindowsRuntime;
+using Windows.Foundation;
+using Windows.Foundation.Collections;
+using Windows.Storage.FileProperties;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
+using Windows.UI.Xaml.Controls.Primitives;
+using Windows.UI.Xaml.Data;
 using Windows.UI.Xaml.Input;
+using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Media.Imaging;
+using Windows.UI.Xaml.Navigation;
 
 // The User Control item template is documented at https://go.microsoft.com/fwlink/?LinkId=234236
+
 namespace DMO.Controls
 {
-    public sealed partial class HoverGif : UserControl, INotifyPropertyChanged
+    public sealed partial class FastImage : UserControl, INotifyPropertyChanged
     {
         /// <summary>
         /// The event that is fired when any child property changes its value.
@@ -23,47 +34,11 @@ namespace DMO.Controls
         }
 
         public static readonly DependencyProperty FileNameProperty =
-          DependencyProperty.Register(nameof(FileName), typeof(string), typeof(HoverGif), null);
+          DependencyProperty.Register(nameof(FileName), typeof(string), typeof(FastImage), null);
 
-        public HoverGif()
+        public FastImage()
         {
-            InitializeComponent();
-        }
-        
-        private void Image_PointerEntered(object sender, PointerRoutedEventArgs e)
-        {
-            if (Image.Source is BitmapImage bitmap)
-            {
-                if (bitmap.IsAnimatedBitmap)
-                {
-                    if (!bitmap.IsPlaying)
-                    {
-                        bitmap.Play();
-                    }
-                }
-            }
-        }
-
-        private void Image_PointerExited(object sender, PointerRoutedEventArgs e)
-        {
-            if (Image.Source is BitmapImage bitmap)
-            {
-                if (bitmap.IsAnimatedBitmap)
-                {
-                    bitmap.Stop();
-                }
-            }
-        }
-
-        private void Image_ImageOpened(object sender, RoutedEventArgs e)
-        {
-            if (SettingsService.Instance.AutoPlayGifs)
-            {
-                Root.PointerExited -= Image_PointerExited;
-                return;
-            }
-
-            (Image.Source as BitmapImage)?.Stop();
+            this.InitializeComponent();
         }
 
         public async void OnPropertyChanged(string name)
