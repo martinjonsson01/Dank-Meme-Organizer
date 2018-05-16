@@ -10,6 +10,7 @@ using Windows.ApplicationModel;
 using Windows.Storage.AccessCache;
 using System.Collections.Generic;
 using Windows.UI.Xaml;
+using Windows.Storage;
 
 namespace DMO
 {
@@ -18,6 +19,8 @@ namespace DMO
     [Bindable]
     public sealed partial class App : BootStrapper
     {
+        public static Dictionary<string, StorageFile> Files = new Dictionary<string, StorageFile>();
+
         public App()
         {
             InitializeComponent();

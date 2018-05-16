@@ -13,7 +13,6 @@
 
 
     <Image x:Name="Image" 
-           Source="{x:Bind GifBitmap, Mode=OneWay}"
            ImageOpened="Image_ImageOpened"
            Loaded="Image_ImageOpened"
            Stretch="UniformToFill">

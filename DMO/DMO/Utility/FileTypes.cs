@@ -23,7 +23,7 @@ namespace DMO.Utility
             "video",
         };
 
-        public static bool MIMEIsSupported(string MIMEType)
+        public static bool IsSupportedMIME(string MIMEType)
         {
             var types = MIMEType.Split('/');
             return MIMETypes.Contains(types[0]);

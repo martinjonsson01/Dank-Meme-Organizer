@@ -8,7 +8,7 @@ namespace DMO.Models
 {
     public class ImageData : MediaData
     {
-        public ImageData(StorageFile file, BitmapImage image) : base(file, image)
+        public ImageData(StorageFile file) : base(file)
         {
 
         }
