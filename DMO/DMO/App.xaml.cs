@@ -43,7 +43,7 @@ namespace DMO
         public override async Task OnStartAsync(StartKind startKind, IActivatedEventArgs args)
         {
             // TODO: add your long-running task here
-            SettingsService.Instance.FolderPath = null;
+            
             // If no folder path has been set, have the user select one.
             if (string.IsNullOrEmpty(SettingsService.Instance.FolderPath))
                 await NavigationService.NavigateAsync(typeof(Views.FolderSelectPage));

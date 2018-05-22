@@ -145,7 +145,8 @@
                         DefaultLabelPosition="Right">
                 <CommandBar.SecondaryCommands>
                     <AppBarButton Icon="Setting" 
-                                  Label="Settings"/>
+                                  Label="Settings" 
+                                  Command="{x:Bind ViewModel.GoToSettingsPage}" />
                 </CommandBar.SecondaryCommands>
             </CommandBar>
 

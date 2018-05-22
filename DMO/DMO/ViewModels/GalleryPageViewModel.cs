@@ -14,6 +14,8 @@ using Windows.UI.Xaml.Media.Imaging;
 using Windows.UI.Xaml.Navigation;
 using Microsoft.Toolkit.Uwp.UI;
 using DMO.Services.SettingsServices;
+using Template10.Mvvm;
+using DMO.Views;
 
 namespace DMO.ViewModels
 {
@@ -132,6 +134,13 @@ namespace DMO.ViewModels
                 SearchResults.RefreshSorting();
             }
         }
+
+        private DelegateCommand _goToSettingsPage;
+        public DelegateCommand GoToSettingsPage
+            => _goToSettingsPage ?? (_goToSettingsPage = new DelegateCommand(async () =>
+            {
+                await NavigationService.NavigateAsync(typeof(SettingsPage));
+            }));
 
         #endregion
 

@@ -34,7 +34,9 @@ namespace DMO.Models
             var combinedPath = Path.Combine(folderPath, value);
             if (await Task.Factory.StartNew(() => File.Exists(combinedPath))) return;
 
+            App.Files.Remove(MediaFile.Name);
             await MediaFile.RenameAsync(value);
+            App.Files.Add(value, MediaFile);
             OnPropertyChanged(nameof(Title));
         }
         
