@@ -1,11 +1,14 @@
-﻿using System;
+﻿using DMO.Views;
+using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
+using Template10.Common;
 using Template10.Mvvm;
-using Template10.Services.SettingsService;
 using Windows.UI.Xaml;
 
-namespace DMO.Examples.ViewModels
+namespace DMO.ViewModels
 {
     public class SettingsPageViewModel : ViewModelBase
     {
@@ -16,6 +19,21 @@ namespace DMO.Examples.ViewModels
     public class SettingsPartViewModel : ViewModelBase
     {
         Services.SettingsServices.SettingsService _settings;
+
+        public bool AutoPlayGifs
+        {
+            get => _settings.AutoPlayGifs;
+            set => _settings.AutoPlayGifs = value;
+        }
+
+        DelegateCommand _changeFolderCommand;
+        public DelegateCommand ChangeFolderCommand
+            => _changeFolderCommand ?? (_changeFolderCommand = new DelegateCommand(async () =>
+            {
+                _settings.FolderPath = null;
+                var nav = WindowWrapper.Current().NavigationServices.FirstOrDefault();
+                await nav.NavigateAsync(typeof(FolderSelectPage));
+            }));
 
         public SettingsPartViewModel()
         {
@@ -28,38 +46,6 @@ namespace DMO.Examples.ViewModels
                 _settings = Services.SettingsServices.SettingsService.Instance;
             }
         }
-
-        public bool UseShellBackButton
-        {
-            get => _settings.UseShellBackButton;
-            set { _settings.UseShellBackButton = value; base.RaisePropertyChanged(); }
-        }
-
-        public bool UseLightThemeButton
-        {
-            get => _settings.AppTheme.Equals(ApplicationTheme.Light);
-            set { _settings.AppTheme = value ? ApplicationTheme.Light : ApplicationTheme.Dark; base.RaisePropertyChanged(); }
-        }
-
-        private string _BusyText = "Please wait...";
-        public string BusyText
-        {
-            get => _BusyText;
-            set
-            {
-                Set(ref _BusyText, value);
-                _ShowBusyCommand.RaiseCanExecuteChanged();
-            }
-        }
-
-        DelegateCommand _ShowBusyCommand;
-        public DelegateCommand ShowBusyCommand
-            => _ShowBusyCommand ?? (_ShowBusyCommand = new DelegateCommand(async () =>
-            {
-                Views.Busy.SetBusy(true, _BusyText);
-                await Task.Delay(5000);
-                Views.Busy.SetBusy(false);
-            }, () => !string.IsNullOrEmpty(BusyText)));
     }
 
     public class AboutPartViewModel : ViewModelBase

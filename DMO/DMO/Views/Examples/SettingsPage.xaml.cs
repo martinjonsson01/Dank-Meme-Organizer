@@ -2,7 +2,7 @@
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Navigation;
 
-namespace DMO.Views
+namespace DMO.Views.Examples
 {
     public sealed partial class SettingsPage : Page
     {

@@ -19,6 +19,7 @@ using DMO.Utility;
 using System.IO;
 using System.Net.Http.Headers;
 using System.Diagnostics;
+using Template10.Mvvm;
 
 namespace DMO.ViewModels
 {
@@ -144,7 +145,7 @@ namespace DMO.ViewModels
                 SearchResults.RefreshSorting();
             }
         }
-
+        
         public async void ItemClicked(object sender, ItemClickEventArgs e)
         {
             if (e.ClickedItem is ImageData imageData)
@@ -152,6 +153,13 @@ namespace DMO.ViewModels
                 await MakeAnalysisRequest(imageData.MediaFile);
             }
         }
+
+        private DelegateCommand _goToSettingsPage;
+        public DelegateCommand GoToSettingsPage
+            => _goToSettingsPage ?? (_goToSettingsPage = new DelegateCommand(async () =>
+            {
+                await NavigationService.NavigateAsync(typeof(SettingsPage));
+            }));
 
         #endregion
 
