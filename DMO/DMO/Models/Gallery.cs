@@ -1,4 +1,5 @@
 ﻿using DMO.Extensions;
+using DMO.ML;
 using DMO.Utility;
 using System;
 using System.Collections.Generic;
@@ -18,6 +19,12 @@ namespace DMO.Models
 {
     public class Gallery : BaseModel
     {
+        #region Private Members
+
+        private MemeClassifierModel MemeClassifier;
+
+        #endregion
+
         #region Public Properties
 
         public string RootFolderPath { get; }
@@ -25,6 +32,10 @@ namespace DMO.Models
         public ObservableCollection<MediaData> MediaDatas { get; }
 
         public int FilesFound { get; set; }
+
+        public int ImageCount { get; private set; }
+        public int VideoCount { get; private set; }
+        public int GifCount { get; private set; }
 
         #endregion
 
@@ -40,7 +51,7 @@ namespace DMO.Models
 
         #region Public Methods
 
-        public async Task ScanFolderContents(int imageSize)
+        public async Task LoadFolderContents(int imageSize)
         {
             var folder = await StorageFolder.GetFolderFromPathAsync(RootFolderPath);
 
@@ -56,7 +67,7 @@ namespace DMO.Models
 
                 // Prefetch thumbnails.
                 queryOptions.SetThumbnailPrefetch(ThumbnailMode.SingleItem, (uint)imageSize, ThumbnailOptions.ResizeThumbnail);
-                queryOptions.SetPropertyPrefetch(PropertyPrefetchOptions.BasicProperties, new[] { "System.DateModified" });
+                queryOptions.SetPropertyPrefetch(PropertyPrefetchOptions.ImageProperties, new[] { "System.DateModified" });
 
                 // Create query.
                 var query = folder.CreateFileQueryWithOptions(queryOptions);
@@ -130,6 +141,7 @@ namespace DMO.Models
             //
             if (mediaFile.FileType == ".gif")
             {
+                GifCount++;
                 return new GifData(mediaFile);
             }
             else if (mediaFile.IsVideo())
@@ -141,11 +153,36 @@ namespace DMO.Models
                     uid = uid.Substring(uid.Length - 261, uid.Length - 1);
                 // Store file for future access.
                 StorageApplicationPermissions.FutureAccessList.AddOrReplace(uid, mediaFile);*/
+                VideoCount++;
                 return new VideoData(mediaFile);
             }
             else
             {
+                ImageCount++;
                 return new ImageData(mediaFile);
+            }
+        }
+
+        public async Task EvaluateImages(IProgress<int> progress)
+        {
+            // Load ML model into memory if not already.
+            if (MemeClassifier == null)
+            {
+                var modelFile = await StorageFile.GetFileFromApplicationUriAsync(new Uri($"ms-appx:///Assets/MemeClassifier.onnx"));
+                MemeClassifier = await MemeClassifierModel.CreateModel(modelFile);
+            }
+
+            var evaluated = 0;
+            foreach (var data in MediaDatas)
+            {
+                if (data is ImageData image)
+                {
+                    // Evaluate image using classifier.
+                    await image.Evaluate(MemeClassifier);
+                    // Update and then report progress.
+                    evaluated++;
+                    progress.Report(evaluated);
+                }
             }
         }
 

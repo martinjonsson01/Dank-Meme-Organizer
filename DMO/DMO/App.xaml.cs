@@ -11,6 +11,8 @@ using Windows.Storage.AccessCache;
 using System.Collections.Generic;
 using Windows.UI.Xaml;
 using Windows.Storage;
+using Template10.Services.NavigationService;
+using Windows.UI.Xaml.Controls;
 
 namespace DMO
 {
@@ -43,12 +45,17 @@ namespace DMO
         public override async Task OnStartAsync(StartKind startKind, IActivatedEventArgs args)
         {
             // TODO: add your long-running task here
-            SettingsService.Instance.FolderPath = null;
+            
             // If no folder path has been set, have the user select one.
             if (string.IsNullOrEmpty(SettingsService.Instance.FolderPath))
                 await NavigationService.NavigateAsync(typeof(Views.FolderSelectPage));
             else
                 await NavigationService.NavigateAsync(typeof(Views.GalleryPage), SettingsService.Instance.FolderPath);
+        }
+
+        protected override INavigationService CreateNavigationService(Frame frame)
+        {
+            return base.CreateNavigationService(frame);
         }
 
         private static void ClearFutureAccessList()

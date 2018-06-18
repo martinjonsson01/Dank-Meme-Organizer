@@ -74,6 +74,7 @@ namespace DMO.Controls
                     var mediaFile = App.Files[FileName];
                     // Load thumbnail.
                     var thumbnail = await mediaFile.GetThumbnailAsync(ThumbnailMode.SingleItem);
+                    // TODO: MediaElement becomes null between the await-s, try reinstating a new one when it does that.
                     // Apply poster source.
                     var thumbnailBitmap = new BitmapImage();
                     MediaElement.PosterSource = thumbnailBitmap;

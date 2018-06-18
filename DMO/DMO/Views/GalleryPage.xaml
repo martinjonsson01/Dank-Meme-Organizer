@@ -110,6 +110,12 @@
                             QuerySubmitted="{x:Bind ViewModel.SearchQuerySubmitted}"
                             SuggestionChosen="{x:Bind ViewModel.SearchSuggestionChosen}"/>
 
+            <ProgressBar RelativePanel.Below="SearchBox"
+                         RelativePanel.AlignLeftWith="SearchBox"
+                         RelativePanel.AlignRightWith="SearchBox"
+                         Margin="0, 4, 0, 0"
+                         Value="{x:Bind ViewModel.EvaluationProgress, Mode=OneWay}" />
+
             <CommandBar x:Name="ToolBar"
                         Margin="0, 0, 16, 0"
                         RelativePanel.LeftOf="SearchBox"
@@ -160,6 +166,7 @@
                   VerticalAlignment="Stretch"
                   ItemsSource="{x:Bind ViewModel.SearchResults, Mode=OneWay}"
                   ItemTemplateSelector="{StaticResource MediaDataTemplateSelector}"
+                  ItemClick="{x:Bind ViewModel.ItemClicked}"
                   Margin="8, 0, 8, 8"
                   SelectionMode="Extended"
                   CanReorderItems="True"
