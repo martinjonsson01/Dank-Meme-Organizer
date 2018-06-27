@@ -10,6 +10,10 @@ using Windows.ApplicationModel;
 using Windows.Storage.AccessCache;
 using System.Collections.Generic;
 using Windows.UI.Xaml;
+using Windows.Storage;
+using Template10.Services.NavigationService;
+using Windows.UI.Xaml.Controls;
+using DMO.Models;
 
 namespace DMO
 {
@@ -18,10 +22,16 @@ namespace DMO
     [Bindable]
     public sealed partial class App : BootStrapper
     {
+        public static Dictionary<string, StorageFile> Files = new Dictionary<string, StorageFile>();
+
+        public static Gallery Gallery;
+
         public App()
         {
             InitializeComponent();
             SplashFactory = (e) => new Views.Splash(e);
+
+            DebugSettings.EnableFrameRateCounter = true;
 
             #region App Settings
 
@@ -40,12 +50,17 @@ namespace DMO
         public override async Task OnStartAsync(StartKind startKind, IActivatedEventArgs args)
         {
             // TODO: add your long-running task here
-            SettingsService.Instance.FolderPath = null;
+            
             // If no folder path has been set, have the user select one.
             if (string.IsNullOrEmpty(SettingsService.Instance.FolderPath))
                 await NavigationService.NavigateAsync(typeof(Views.FolderSelectPage));
             else
                 await NavigationService.NavigateAsync(typeof(Views.GalleryPage), SettingsService.Instance.FolderPath);
+        }
+
+        protected override INavigationService CreateNavigationService(Frame frame)
+        {
+            return base.CreateNavigationService(frame);
         }
 
         private static void ClearFutureAccessList()

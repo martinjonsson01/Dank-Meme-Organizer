@@ -1,0 +1,52 @@
+﻿<Page x:Class="DMO.Views.DetailsPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:Behaviors="using:Template10.Behaviors"
+      xmlns:Core="using:Microsoft.Xaml.Interactions.Core"
+      xmlns:Interactivity="using:Microsoft.Xaml.Interactivity"
+      xmlns:controls="using:DMO.Controls"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      xmlns:local="using:DMO.Views"
+      xmlns:converters="using:DMO.Converters"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      xmlns:vm="using:DMO.ViewModels" mc:Ignorable="d">
+
+    <Page.Resources>
+        <converters:TopThicknessConverter x:Key="TopThicknessConverter"/>
+    </Page.Resources>
+
+        <Page.DataContext>
+            <vm:DetailsPageViewModel x:Name="ViewModel" />
+        </Page.DataContext>
+
+        <RelativePanel Background="{ThemeResource SystemControlAcrylicElementMediumHighBrush}">
+
+        <Grid Margin="128"
+              RelativePanel.AlignVerticalCenterWithPanel="True"
+              RelativePanel.AlignHorizontalCenterWithPanel="True">
+            
+            <!--  Video element  -->
+            <controls:MediaPlayerHover x:Name="MediaPlayerElement"
+                                       VerticalAlignment="Center"
+                                       VerticalContentAlignment="Center"
+                                       HorizontalAlignment="Center"
+                                       HorizontalContentAlignment="Center"
+                                       Visibility="{x:Bind ViewModel.IsVideo, Mode=OneWay}"
+                                       FileName="{x:Bind ViewModel.VideoMediaData.Title, Mode=OneWay}"/>
+
+            <!--  Image/Gif element  -->
+            <Viewbox VerticalAlignment="Center"
+                     HorizontalAlignment="Center"
+                     StretchDirection="DownOnly"
+                     Visibility="{x:Bind ViewModel.IsImage, Mode=OneWay}">
+                <controls:FastImage x:Name="ImageElement"
+                                   VerticalAlignment="Center"
+                                   HorizontalAlignment="Center"
+                                    FileName="{x:Bind ViewModel.ImageMediaData.Title, Mode=OneWay}"/>
+            </Viewbox>
+
+        </Grid>
+
+    </RelativePanel>
+
+</Page>

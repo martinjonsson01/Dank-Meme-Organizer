@@ -6,15 +6,13 @@ using System.Threading.Tasks;
 using Windows.Graphics.Imaging;
 using Windows.Media;
 using Windows.Storage;
-using Windows.Storage.FileProperties;
-using Windows.Storage.Streams;
-using Windows.UI.Xaml.Media;
-using Windows.UI.Xaml.Media.Imaging;
 
 namespace DMO.Models
 {
     public class ImageData : MediaData
     {
+        public IList<KeyValuePair<string, float>> Tags = new List<KeyValuePair<string, float>>();
+
         public ImageData(StorageFile file) : base(file)
         {
 
@@ -37,18 +35,20 @@ namespace DMO.Models
                 // Apply data to input.
                 input.Data =  VideoFrame.CreateWithSoftwareBitmap(softwareBitmap);
             }
-
+            
             // Evaluate input...
             var output = await model.EvaluateAsync(input);
 
-            // Order tags by descending loss and take 2.
-            var tagsAndLoss = output.Loss.OrderByDescending(pair => pair.Value).Take(2).ToList();
-
-            // Get image properties.
-            var imageProperties = await MediaFile.Properties.GetImagePropertiesAsync();
-            // Add the two tags to file properties.
-            imageProperties.Keywords.Add(tagsAndLoss[0].Key);
-            imageProperties.Keywords.Add(tagsAndLoss[1].Key);
+            // Order tags by descending loss and remove any that have a probability lower than 10%.
+            var tagsAndLoss = output.Loss.OrderByDescending(pair => pair.Value).Where(pair => pair.Value > 0.1f).ToList();
+            // If tagsAndLoss contains less than two tags, use the two upper tags.
+            if (tagsAndLoss.Count < 2)
+            {
+                // Order tags by descending loss and take 2.
+                tagsAndLoss = output.Loss.OrderByDescending(pair => pair.Value).Take(2).ToList();
+            }
+            // Update Tags. TODO: Put tags in a persistent database.
+            Tags = tagsAndLoss;
         }
     }
 }

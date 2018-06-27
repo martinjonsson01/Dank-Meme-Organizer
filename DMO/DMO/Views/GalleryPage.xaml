@@ -13,7 +13,8 @@
       xmlns:control="using:DMO.Controls"
       xmlns:behaviours="using:DMO.Behaviours"
       xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-      xmlns:vm="using:DMO.ViewModels" mc:Ignorable="d">
+      xmlns:vm="using:DMO.ViewModels" mc:Ignorable="d"
+      NavigationCacheMode="Enabled">
 
     <Page.DataContext>
         <vm:GalleryPageViewModel x:Name="ViewModel" />
@@ -35,7 +36,8 @@
                     <RowDefinition Height="*" />
                     <RowDefinition Height="32" />
                 </Grid.RowDefinitions>
-                <control:FastImage Margin="0, 0, 0, 0"
+                <control:FastImage x:Name="FastImage"
+                                   Margin="0, 0, 0, 0"
                                    FileName="{x:Bind Title, Mode=OneTime}"/>
                 <control:FileNameTextBox x:Phase="0"
                                          Grid.Row="1"
@@ -53,7 +55,8 @@
                     <RowDefinition Height="*" />
                     <RowDefinition Height="32" />
                 </Grid.RowDefinitions>
-                <control:MediaPlayerHover Margin="0, 0, 0, 0"
+                <control:MediaPlayerHover x:Name="MediaPlayerHover"
+                                          Margin="0, 0, 0, 0"
                                           x:Phase="1"
                                           FileName="{x:Bind Title, Mode=OneTime}"
                                           Suspended="{x:Bind Suspended, Mode=OneWay}">
@@ -74,7 +77,8 @@
                     <RowDefinition Height="*" />
                     <RowDefinition Height="32" />
                 </Grid.RowDefinitions>
-                <control:HoverGif x:Phase="1"
+                <control:HoverGif x:Name="HoverGif"
+                                  x:Phase="1"
                                   Margin="0"
                                   FileName="{x:Bind Title, Mode=OneTime}"/>
                 <control:FileNameTextBox x:Phase="0"
@@ -168,6 +172,7 @@
                   ItemsSource="{x:Bind ViewModel.SearchResults, Mode=OneWay}"
                   ItemTemplateSelector="{StaticResource MediaDataTemplateSelector}"
                   ItemClick="{x:Bind ViewModel.ItemClicked}"
+                  Loaded="{x:Bind ViewModel.GridViewLoaded}"
                   Margin="8, 0, 8, 8"
                   SelectionMode="Extended"
                   CanReorderItems="True"

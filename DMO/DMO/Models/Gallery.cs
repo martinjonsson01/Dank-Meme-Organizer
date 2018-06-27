@@ -37,6 +37,8 @@ namespace DMO.Models
         public int VideoCount { get; private set; }
         public int GifCount { get; private set; }
 
+        public bool IsEvaluating { get; set; }
+
         #endregion
 
         #region Constructor
@@ -45,6 +47,7 @@ namespace DMO.Models
         {
             RootFolderPath = rootFolderPath;
             MediaDatas = new ObservableCollection<MediaData>();
+            App.Gallery = this;
         }
 
         #endregion
@@ -54,7 +57,7 @@ namespace DMO.Models
         public async Task LoadFolderContents(int imageSize)
         {
             var folder = await StorageFolder.GetFolderFromPathAsync(RootFolderPath);
-
+            // TODO: Set up a tracker to keep track of when new files get added to the file system while application is running.
             if (folder != null)
             {
                 var sw = new Stopwatch();
@@ -89,10 +92,16 @@ namespace DMO.Models
             }
         }
 
+        /// <summary>
+        /// Adds a new <see cref="StorageFile"/> to this gallery.
+        /// </summary>
+        /// <param name="imageSize">The size of the pregenerated thumbnail.</param>
+        /// <param name="mediaFile">The file to add.</param>
+        /// <returns></returns>
         public async Task AddFile(int imageSize, StorageFile mediaFile)
         {
             var data = CreateMediaData(mediaFile);
-
+            
             var properties = await mediaFile.Properties.RetrievePropertiesAsync
                 (
                     new String[] { "System.DateModified" }
@@ -108,6 +117,19 @@ namespace DMO.Models
                 App.Files.Add(mediaFile.Name, mediaFile);
 
             await ApplyThumbnails(imageSize, mediaFile, data);
+        }
+
+        /// <summary>
+        /// Removes a <see cref="StorageFile"/> from this gallery.
+        /// Note: Does not remove the file from the file system.
+        /// </summary>
+        /// <param name="mediaFile">The file to remove.</param>
+        public void RemoveFile(StorageFile mediaFile)
+        {
+            var firstMatch = MediaDatas.ToList().First(mediaData => mediaData.MediaFile == mediaFile);
+            var index = MediaDatas.IndexOf(firstMatch);
+            MediaDatas.RemoveAt(index);
+            App.Files.Remove(mediaFile.Name);
         }
 
         public static async Task ApplyThumbnails(int imageSize, StorageFile mediaFile, MediaData data)
@@ -146,13 +168,6 @@ namespace DMO.Models
             }
             else if (mediaFile.IsVideo())
             {
-                // Generate deterministic UID for file.
-                /*var uid = new Uri(mediaFile.Path).AbsolutePath;
-                // If uid is over character limit shorten it from the right side so it keeps its uniqueness.
-                if (uid.Length >= 260)
-                    uid = uid.Substring(uid.Length - 261, uid.Length - 1);
-                // Store file for future access.
-                StorageApplicationPermissions.FutureAccessList.AddOrReplace(uid, mediaFile);*/
                 VideoCount++;
                 return new VideoData(mediaFile);
             }
@@ -165,6 +180,9 @@ namespace DMO.Models
 
         public async Task EvaluateImages(IProgress<int> progress)
         {
+            var sw = new Stopwatch();
+            sw.Start();
+            IsEvaluating = true;
             // Load ML model into memory if not already.
             if (MemeClassifier == null)
             {
@@ -177,13 +195,18 @@ namespace DMO.Models
             {
                 if (data is ImageData image)
                 {
-                    // Evaluate image using classifier.
-                    await image.Evaluate(MemeClassifier);
+                    // Evaluate image using classifier if it has no tags.
+                    if (image.Tags.Count < 1)
+                        await image.Evaluate(MemeClassifier);
                     // Update and then report progress.
                     evaluated++;
                     progress.Report(evaluated);
                 }
             }
+            IsEvaluating = false;
+            sw.Stop();
+            Debug.WriteLine($"Gallery Machine Learning Evaluation completed! Elapsed time: {sw.ElapsedMilliseconds} ms {evaluated} files evaluated." +
+                $" Average time per file {sw.ElapsedMilliseconds/(float)evaluated} ms");
         }
 
         #endregion

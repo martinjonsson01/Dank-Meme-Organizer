@@ -13,6 +13,7 @@ using Windows.UI.Xaml;
 using Windows.Storage;
 using Template10.Services.NavigationService;
 using Windows.UI.Xaml.Controls;
+using DMO.Models;
 
 namespace DMO
 {
@@ -23,10 +24,14 @@ namespace DMO
     {
         public static Dictionary<string, StorageFile> Files = new Dictionary<string, StorageFile>();
 
+        public static Gallery Gallery;
+
         public App()
         {
             InitializeComponent();
             SplashFactory = (e) => new Views.Splash(e);
+
+            DebugSettings.EnableFrameRateCounter = true;
 
             #region App Settings
 

@@ -1,14 +1,16 @@
-﻿using System;
-using System.ComponentModel;
+﻿using Microsoft.Win32.SafeHandles;
+using System;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Windows.Storage;
-using Windows.UI.Xaml.Media.Imaging;
 
 namespace DMO.Models
 {
     public abstract class MediaData : BaseModel
     {
+        #region Public Properties
+
         public StorageFile MediaFile;
 
         /// <summary>
@@ -20,10 +22,37 @@ namespace DMO.Models
         public string Title
         {
             get => MediaFile?.Name;
-            set => RenameFile(value);
+            set => TryRenameFile(value);
         }
 
-        public async void RenameFile(string value)
+        public DateTime LastModified { get; set; }
+
+        public DateTimeOffset Created => MediaFile.DateCreated;
+
+        /// <summary>
+        /// The unique file-system-wide identifier string of this file.
+        /// </summary>
+        public string Uid { get; }
+
+        #endregion
+
+        #region Constructor
+
+        public MediaData(StorageFile file)
+        {
+            MediaFile = file;
+            Uid = GetNTFSUid();
+        }
+
+        #endregion
+
+        #region Public Methods
+
+        /// <summary>
+        /// Tries to rename this file to the provided value.
+        /// </summary>
+        /// <param name="value">The new name of this file.</param>
+        public async void TryRenameFile(string value)
         {
             if (string.IsNullOrEmpty(value)) return;
             if (value == Title) return;
@@ -39,14 +68,52 @@ namespace DMO.Models
             App.Files.Add(value, MediaFile);
             OnPropertyChanged(nameof(Title));
         }
-        
-        public DateTime LastModified { get; set; }
 
-        public DateTimeOffset Created => MediaFile.DateCreated;
+        #region Interop stuff for NTFSUid methods
 
-        public MediaData(StorageFile file)
+        struct BY_HANDLE_FILE_INFORMATION
         {
-            MediaFile = file;
+            public uint FileAttributes;
+            public System.Runtime.InteropServices.ComTypes.FILETIME CreationTime;
+            public System.Runtime.InteropServices.ComTypes.FILETIME LastAccessTime;
+            public System.Runtime.InteropServices.ComTypes.FILETIME LastWriteTime;
+            public uint VolumeSerialNumber;
+            public uint FileSizeHigh;
+            public uint FileSizeLow;
+            public uint NumberOfLinks;
+            public uint FileIndexHigh;
+            public uint FileIndexLow;
         }
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool GetFileInformationByHandle(SafeFileHandle hFile, out BY_HANDLE_FILE_INFORMATION lpFileInformation);
+
+        #endregion
+
+        /// <summary>
+        /// Opens a stream to the <see cref="StorageFile"/> of this object and gets the NTFS unique identifier from it.
+        /// </summary>
+        /// <returns>A unique file-system-wide identifier string.</returns>
+        public string GetNTFSUid()
+        {
+            using (var stream = new FileStream(MediaFile.CreateSafeFileHandle(), FileAccess.ReadWrite))
+            {
+                return GetNTFSUid(stream);
+            }
+        }
+
+        /// <summary>
+        /// Uses the SafeFileHandle of the provided <see cref="FileStream"/> to access the _BY_HANDLE_FILE_INFORMATION structure
+        /// to get the VolumeSerialNumber, FileIndexHigh and FileIndexLow which are then concatenated and returned as a string.
+        /// </summary>
+        /// <param name="stream">The open read-access file stream to the file.</param>
+        /// <returns>A unique file-system-wide identifier string.</returns>
+        public static string GetNTFSUid(FileStream stream)
+        {
+            BY_HANDLE_FILE_INFORMATION hInfo = new BY_HANDLE_FILE_INFORMATION();
+            GetFileInformationByHandle(stream.SafeFileHandle, out hInfo);
+            return $"{hInfo.VolumeSerialNumber}{hInfo.FileIndexHigh}{hInfo.FileIndexLow}";
+        }
+
+        #endregion
     }
 }

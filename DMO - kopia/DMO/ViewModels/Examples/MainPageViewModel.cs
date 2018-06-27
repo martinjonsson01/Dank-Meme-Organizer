@@ -46,7 +46,7 @@ namespace DMO.ViewModels
         }
 
         public void GotoDetailsPage() =>
-            NavigationService.Navigate(typeof(Views.DetailPage), Value);
+            NavigationService.Navigate(typeof(Views.DetailsPage), Value);
 
         public void GotoSettings() =>
             NavigationService.Navigate(typeof(Views.SettingsPage), 0);

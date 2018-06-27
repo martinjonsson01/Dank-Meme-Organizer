@@ -43,7 +43,7 @@ namespace DMO.Behaviours
                                 if (item is StorageFile file)
                                 {
                                     // Check if file type is supported. Using MIME allows for all kinds of videos and images.
-                                    if (FileTypes.MIMEIsSupported(file.ContentType))
+                                    if (FileTypes.IsSupportedMIME(file.ContentType))
                                     {
                                         var folder = await StorageFolder.GetFolderFromPathAsync(vm.Gallery.RootFolderPath);
                                         var mediaFile = await file.CopyAsync(folder, file.Name, NameCollisionOption.GenerateUniqueName);

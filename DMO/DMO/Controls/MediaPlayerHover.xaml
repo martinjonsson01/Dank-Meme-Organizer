@@ -10,7 +10,8 @@
              d:DesignWidth="256"
              x:Name="Root"
              PointerEntered="MediaPlayer_PointerEntered"
-             PointerExited="MediaPlayer_PointerExited">
+             PointerExited="MediaPlayer_PointerExited"
+             Background="Black">
 
     <UserControl.Resources>
 
@@ -25,6 +26,7 @@
                       Margin="0, 0, 0, 0"
                       Stretch="Uniform"
                       AutoPlay="False"
+                      Loaded="MediaElement_Loaded"
                       MediaOpened="MediaElement_MediaOpened"
                       MediaEnded="MediaElement_MediaEnded"
                       MediaFailed="MediaElement_MediaFailed"/>
@@ -45,5 +47,29 @@
         </StackPanel>
 
     </Grid>
-    
+
+    <UserControl.ContextFlyout>
+        <MenuFlyout>
+            <MenuFlyoutItem Text="Copy"
+                                Command="{x:Bind CopyCommand}">
+                <MenuFlyoutItem.Icon>
+                    <SymbolIcon Symbol="Copy" />
+                </MenuFlyoutItem.Icon>
+            </MenuFlyoutItem>
+            <MenuFlyoutItem Text="Delete"
+                                Command="{x:Bind DeleteConfirmCommand}">
+                <MenuFlyoutItem.Icon>
+                    <SymbolIcon Symbol="Delete" />
+                </MenuFlyoutItem.Icon>
+            </MenuFlyoutItem>
+            <MenuFlyoutSeparator/>
+            <MenuFlyoutItem Text="Rename"
+                                Command="{x:Bind RenameCommand}">
+                <MenuFlyoutItem.Icon>
+                    <SymbolIcon Symbol="Rename" />
+                </MenuFlyoutItem.Icon>
+            </MenuFlyoutItem>
+        </MenuFlyout>
+    </UserControl.ContextFlyout>
+
 </UserControl>

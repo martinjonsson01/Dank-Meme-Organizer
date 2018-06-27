@@ -5,6 +5,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Windows.ApplicationModel.DataTransfer;
+using Windows.Storage;
 using Windows.UI.Xaml.Controls;
 
 namespace DMO.Behaviours
@@ -21,16 +23,17 @@ namespace DMO.Behaviours
 
         private void AssociatedObject_DragItemsStarting(object sender, DragItemsStartingEventArgs e)
         {
-            e.Data.RequestedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
             if (e.Items != null && e.Items.Any())
             {
+                var files = new List<StorageFile>();
                 foreach(var item in e.Items)
                 {
                     if (item is MediaData data)
                     {
-                        e.Data.Properties.Add(data.Title, data.MediaFile);
+                        files.Add(data.MediaFile);
                     }
                 }
+                e.Data.SetStorageItems(files);
             }
         }
 

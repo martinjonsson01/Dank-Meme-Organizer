@@ -20,17 +20,24 @@ using System.IO;
 using System.Net.Http.Headers;
 using System.Diagnostics;
 using Template10.Mvvm;
+using DMO.Views;
+using Windows.UI.Xaml;
+using Windows.UI.Xaml.Media.Animation;
+using DMO.Controls;
 
 namespace DMO.ViewModels
 {
     public class GalleryPageViewModel : ViewModelBase
     {
+        private MediaData _transitionItem;
+
         private const string predictionKey = "3addceda86d8415e88cb2074d7763920";
         const string uriBase = "https://southcentralus.api.cognitive.microsoft.com/customvision/v2.0/Prediction/59181889-0149-4bc1-845f-c70c6b1f6abd/image";
         private Gallery _gallery;
         #region Public Properties
 
-        public Gallery Gallery {
+        public Gallery Gallery
+        {
             get => _gallery;
             private set
             {
@@ -145,12 +152,45 @@ namespace DMO.ViewModels
                 SearchResults.RefreshSorting();
             }
         }
-        
+
         public async void ItemClicked(object sender, ItemClickEventArgs e)
         {
-            if (e.ClickedItem is ImageData imageData)
+            if (e.ClickedItem is MediaData mediaData)
             {
-                await MakeAnalysisRequest(imageData.MediaFile);
+                if (sender is GridView grid)
+                {
+                    _transitionItem = mediaData;
+
+                    var container = grid.ContainerFromItem(mediaData) as GridViewItem;
+
+                    if (mediaData is ImageData)
+                        grid.PrepareConnectedAnimation("detailsImage1", mediaData, "FastImage");
+                    if (mediaData is GifData)
+                        grid.PrepareConnectedAnimation("detailsGif1", mediaData, "HoverGif");
+                    if (mediaData is VideoData)
+                        grid.PrepareConnectedAnimation("detailsVideo1", mediaData, "MediaPlayerHover");
+                }
+
+                await NavigationService.NavigateAsync(typeof(Views.DetailsPage), mediaData.MediaFile.Name);
+            }
+        }
+
+        public async void GridViewLoaded(object sender, RoutedEventArgs e)
+        {
+            if (_transitionItem != null)
+            {
+                if (sender is GridView grid)
+                {
+                    grid.ScrollIntoView(_transitionItem);
+                    grid.UpdateLayout();
+
+                    if (ConnectedAnimationService.GetForCurrentView().GetAnimation("detailsImage2") is ConnectedAnimation imageAnim)
+                        await grid.TryStartConnectedAnimationAsync(imageAnim, _transitionItem, "FastImage");
+                    if (ConnectedAnimationService.GetForCurrentView().GetAnimation("detailsGif2") is ConnectedAnimation gifAnim)
+                        await grid.TryStartConnectedAnimationAsync(gifAnim, _transitionItem, "HoverGif");
+                    if (ConnectedAnimationService.GetForCurrentView().GetAnimation("detailsVideo2") is ConnectedAnimation videoAnim)
+                        await grid.TryStartConnectedAnimationAsync(videoAnim, _transitionItem, "MediaPlayerHover");
+                }
             }
         }
 
@@ -167,41 +207,46 @@ namespace DMO.ViewModels
 
         public override async Task OnNavigatedToAsync(object parameter, NavigationMode mode, IDictionary<string, object> state)
         {
-            IsMediaLoading = true;
-            if (state.Any())
+            if (mode != NavigationMode.Back)
             {
-                Gallery = new Gallery(state[nameof(Gallery)]?.ToString());
-                TileSize = (int)state[nameof(TileSize)];
 
-                // Load Gallery.
-                await LoadGallery();
-            }
-            else if (parameter is GalleryFolderChooser chooser)
-            {
-                // Greate gallery from chooser result.
-                Gallery = new Gallery(chooser.FolderPath);
-                // Load Gallery.
-                await LoadGallery();
-            }
-            else if (parameter is string folderPath)
-            {
-                // Greate gallery from folderPath.
-                Gallery = new Gallery(folderPath);
-                // Load Gallery.
-                await LoadGallery();
-            }
-            IsMediaLoading = false;
+                IsMediaLoading = true;
+                if (state.Any())
+                {
+                    Gallery = new Gallery(state[nameof(Gallery)]?.ToString());
+                    TileSize = (int)state[nameof(TileSize)];
 
-            IsEvaluatingImages = true;
-            // Create progress object to report back evaluation progress.
-            var progress = new Progress<int>();
-            progress.ProgressChanged += (sender, evaluated) =>
-            {
-                EvaluationProgress = ((float)evaluated / Gallery.ImageCount) * 100;
-            };
-            // Now use machine learning to automatically tag all images in gallery as a background task.
-            await Gallery.EvaluateImages(progress);
-            IsEvaluatingImages = false;
+                    // Load Gallery.
+                    await LoadGallery();
+                }
+                else if (parameter is GalleryFolderChooser chooser)
+                {
+                    // Greate gallery from chooser result.
+                    Gallery = new Gallery(chooser.FolderPath);
+                    // Load Gallery.
+                    await LoadGallery();
+                }
+                else if (parameter is string folderPath)
+                {
+                    // Greate gallery from folderPath.
+                    Gallery = new Gallery(folderPath);
+                    // Load Gallery.
+                    await LoadGallery();
+                }
+                IsMediaLoading = false;
+
+                IsEvaluatingImages = true;
+                // Create progress object to report back evaluation progress.
+                var progress = new Progress<int>();
+                progress.ProgressChanged += (sender, evaluated) =>
+                {
+                    EvaluationProgress = ((float)evaluated / Gallery.ImageCount) * 100;
+                };
+                // Now use machine learning to automatically tag all images in gallery as a background task.
+                await Gallery.EvaluateImages(progress);
+                IsEvaluatingImages = false;
+
+            }
         }
 
         public override Task OnNavigatedFromAsync(IDictionary<string, object> pageState, bool suspending)
@@ -261,7 +306,7 @@ namespace DMO.ViewModels
             }
         }
 
-        private async Task MakeAnalysisRequest(StorageFile imageStorageFile)
+        private async Task MakeAnalysisWebRequest(StorageFile imageStorageFile)
         {
             try
             {

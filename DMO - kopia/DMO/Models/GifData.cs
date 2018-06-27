@@ -8,7 +8,7 @@ namespace DMO.Models
 {
     public class GifData : MediaData
     {
-        public GifData(StorageFile file, BitmapImage gif) : base(file, gif)
+        public GifData(StorageFile file) : base(file)
         {
 
         }

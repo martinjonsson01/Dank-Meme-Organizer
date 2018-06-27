@@ -1,6 +1,10 @@
 ﻿using DMO.Services.SettingsServices;
 using System;
 using System.ComponentModel;
+using System.Threading.Tasks;
+using Template10.Mvvm;
+using Windows.ApplicationModel.DataTransfer;
+using Windows.Storage.Streams;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Input;
@@ -11,6 +15,8 @@ namespace DMO.Controls
 {
     public sealed partial class HoverGif : UserControl, INotifyPropertyChanged
     {
+        private ContentDialog _deleteConfirmDialog;
+
         /// <summary>
         /// The event that is fired when any child property changes its value.
         /// </summary>
@@ -24,6 +30,81 @@ namespace DMO.Controls
 
         public static readonly DependencyProperty FileNameProperty =
           DependencyProperty.Register(nameof(FileName), typeof(string), typeof(HoverGif), null);
+
+        #region Commands
+
+        public DelegateCommand CopyCommand
+            => new DelegateCommand(async () =>
+            {
+                var dataPackage = new DataPackage();
+                dataPackage.SetStorageItems(new[] { App.Files[FileName] });
+                try
+                {
+                    Clipboard.SetContent(dataPackage);
+                }
+                catch (Exception ex)
+                {
+                    // Copying data to Clipboard can potentially fail - for example, if another application is holding Clipboard open.
+                    var failDialog = new ContentDialog()
+                    {
+                        Title = "Try again",
+                        Content = "Error copying content to Clipboard: " + ex.Message + ".",
+                        PrimaryButtonText = "Ok",
+                    };
+                    await failDialog.ShowAsync();
+                }
+            });
+
+        public DelegateCommand DeleteConfirmCommand
+            => new DelegateCommand(async () =>
+            {
+                _deleteConfirmDialog = new ContentDialog()
+                {
+                    Title = "Delete?",
+                    Content = "Cannot be undone.",
+                    PrimaryButtonText = "Cancel",
+                    DefaultButton = ContentDialogButton.Primary,
+                    CloseButtonText = "Delete",
+                    CloseButtonCommand = DeleteCommand,
+                };
+
+                await _deleteConfirmDialog.ShowAsync();
+            });
+
+        public DelegateCommand DeleteCommand
+            => new DelegateCommand(async () =>
+            {
+                if (App.Gallery.IsEvaluating)
+                {
+                    _deleteConfirmDialog?.Hide();
+                    var errorDialog = new ContentDialog()
+                    {
+                        Title = "Cannot delete file.",
+                        Content = "Please wait for image evaluation to finish before deleting any files.",
+                        PrimaryButtonText = "Ok",
+                    };
+                    await errorDialog.ShowAsync();
+                    return;
+                }
+                var mediaFile = App.Files[FileName];
+                App.Gallery.RemoveFile(mediaFile);
+                await mediaFile.DeleteAsync();
+            });
+
+        public DelegateCommand RenameCommand
+            => new DelegateCommand(async () =>
+            {
+                // Wait 100ms to allow context menu to close.
+                await Task.Delay(100);
+                // Find the next element(the textbox below).
+                if (FocusManager.FindNextElement(FocusNavigationDirection.Next) is Control c)
+                {
+                    // Shift focus to textbox.
+                    c.Focus(FocusState.Programmatic);
+                }
+            });
+
+        #endregion
 
         public HoverGif()
         {

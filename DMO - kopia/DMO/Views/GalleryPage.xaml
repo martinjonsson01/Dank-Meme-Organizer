@@ -13,7 +13,8 @@
       xmlns:control="using:DMO.Controls"
       xmlns:behaviours="using:DMO.Behaviours"
       xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-      xmlns:vm="using:DMO.ViewModels" mc:Ignorable="d">
+      xmlns:vm="using:DMO.ViewModels" mc:Ignorable="d"
+      NavigationCacheMode="Enabled">
 
     <Page.DataContext>
         <vm:GalleryPageViewModel x:Name="ViewModel" />
@@ -35,10 +36,9 @@
                     <RowDefinition Height="*" />
                     <RowDefinition Height="32" />
                 </Grid.RowDefinitions>
-                <Image x:Phase="1"
-                       Margin="0, 0, 0, 0"
-                       Stretch="Uniform"
-                       Source="{x:Bind Thumbnail, Mode=OneWay}" />
+                <control:FastImage x:Name="FastImage"
+                                   Margin="0, 0, 0, 0"
+                                   FileName="{x:Bind Title, Mode=OneTime}"/>
                 <control:FileNameTextBox x:Phase="0"
                                          Grid.Row="1"
                                          Text="{x:Bind Title, Mode=TwoWay}"/>
@@ -55,10 +55,10 @@
                     <RowDefinition Height="*" />
                     <RowDefinition Height="32" />
                 </Grid.RowDefinitions>
-                <control:MediaPlayerHover Margin="0, 0, 0, 0"
+                <control:MediaPlayerHover x:Name="MediaPlayerHover"
+                                          Margin="0, 0, 0, 0"
                                           x:Phase="1"
-                                          MediaFileUid="{x:Bind MediaFileUid}"
-                                          Thumbnail="{x:Bind Thumbnail, Mode=OneWay}"
+                                          FileName="{x:Bind Title, Mode=OneTime}"
                                           Suspended="{x:Bind Suspended, Mode=OneWay}">
                 </control:MediaPlayerHover>
                 <control:FileNameTextBox x:Phase="0"
@@ -77,9 +77,10 @@
                     <RowDefinition Height="*" />
                     <RowDefinition Height="32" />
                 </Grid.RowDefinitions>
-                <control:HoverGif Margin="0"
+                <control:HoverGif x:Name="HoverGif"
                                   x:Phase="1"
-                                  GifBitmap="{x:Bind Thumbnail, Mode=OneWay}" />
+                                  Margin="0"
+                                  FileName="{x:Bind Title, Mode=OneTime}"/>
                 <control:FileNameTextBox x:Phase="0"
                                          Grid.Row="1"
                                          Text="{x:Bind Title, Mode=TwoWay}"/>
@@ -112,6 +113,12 @@
                             TextChanged="{x:Bind ViewModel.SearchTextChanged}"
                             QuerySubmitted="{x:Bind ViewModel.SearchQuerySubmitted}"
                             SuggestionChosen="{x:Bind ViewModel.SearchSuggestionChosen}"/>
+
+            <ProgressBar RelativePanel.Below="SearchBox"
+                         RelativePanel.AlignLeftWith="SearchBox"
+                         RelativePanel.AlignRightWith="SearchBox"
+                         Margin="0, 4, 0, 0"
+                         Value="{x:Bind ViewModel.EvaluationProgress, Mode=OneWay}" />
 
             <CommandBar x:Name="ToolBar"
                         Margin="0, 0, 16, 0"
@@ -148,7 +155,8 @@
                         DefaultLabelPosition="Right">
                 <CommandBar.SecondaryCommands>
                     <AppBarButton Icon="Setting" 
-                                  Label="Settings"/>
+                                  Label="Settings" 
+                                  Command="{x:Bind ViewModel.GoToSettingsPage}" />
                 </CommandBar.SecondaryCommands>
             </CommandBar>
 
@@ -163,6 +171,8 @@
                   VerticalAlignment="Stretch"
                   ItemsSource="{x:Bind ViewModel.SearchResults, Mode=OneWay}"
                   ItemTemplateSelector="{StaticResource MediaDataTemplateSelector}"
+                  ItemClick="{x:Bind ViewModel.ItemClicked}"
+                  Loaded="{x:Bind ViewModel.GridViewLoaded}"
                   Margin="8, 0, 8, 8"
                   SelectionMode="Extended"
                   CanReorderItems="True"
@@ -185,12 +195,21 @@
 
         </GridView>
 
-        <local:Busy RelativePanel.AlignTopWithPanel="True"
-                    RelativePanel.AlignBottomWithPanel="True"
-                    RelativePanel.AlignLeftWithPanel="True"
-                    RelativePanel.AlignRightWithPanel="True"
-                    IsBusy="{x:Bind ViewModel.IsMediaLoading}"
-                    Visibility="{x:Bind ViewModel.IsMediaLoading}" />
+        <RelativePanel RelativePanel.AlignVerticalCenterWithPanel="True"
+                       RelativePanel.AlignLeftWithPanel="True"
+                       RelativePanel.AlignRightWithPanel="True"
+                       Visibility="{x:Bind ViewModel.IsMediaLoading, Mode=OneWay}">
 
+            <local:Busy x:Name="tb_LoadingIndicator"
+                        RelativePanel.AlignHorizontalCenterWithPanel="True"
+                        IsBusy="{x:Bind ViewModel.IsMediaLoading, Mode=OneWay}" />
+
+            <TextBlock RelativePanel.Below="tb_LoadingIndicator"
+                       RelativePanel.AlignHorizontalCenterWith="tb_LoadingIndicator"
+                       Margin="0, 20, 0, 0"
+                       Text="{x:Bind ViewModel.LoadingProgressStatus, Mode=OneWay}" />
+
+        </RelativePanel> 
+        
     </RelativePanel>
 </Page>
