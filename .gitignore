@@ -302,3 +302,4 @@ __pycache__/
 Package.appxmanifest
 Package.StoreAssociation.xml
 *.appxmanifest
+*.jar
