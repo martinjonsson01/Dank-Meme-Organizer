@@ -2,6 +2,7 @@
 using DMO.Models;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -15,6 +16,8 @@ namespace DMO.ViewModels
 {
     public class DetailsPageViewModel : ViewModelBase
     {
+        #region Public Properties
+
         public string MediaDataKey { get; set; }
 
         public bool IsVideo { get; set; }
@@ -24,6 +27,8 @@ namespace DMO.ViewModels
         public MediaData VideoMediaData { get; set; }
 
         public MediaData ImageMediaData { get; set; }
+
+        #endregion
 
         #region Constructor
 
@@ -38,23 +43,7 @@ namespace DMO.ViewModels
 
         public override async Task OnNavigatedToAsync(object parameter, NavigationMode mode, IDictionary<string, object> suspensionState)
         {
-            MediaDataKey = (suspensionState.ContainsKey(nameof(MediaDataKey))) ? suspensionState[nameof(MediaDataKey)]?.ToString() : parameter?.ToString();
-
-            var mediaFile = App.Files[MediaDataKey];
-
-            if (mediaFile.FileType == ".gif")
-            {
-                ImageMediaData = new GifData(mediaFile);
-            }
-            else if (mediaFile.IsVideo())
-            {
-                IsVideo = true;
-                VideoMediaData = new VideoData(mediaFile);
-            }
-            else
-            {
-                ImageMediaData = new ImageData(mediaFile);
-            }
+            
             await Task.CompletedTask;
         }
 

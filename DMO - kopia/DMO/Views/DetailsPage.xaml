@@ -19,20 +19,27 @@
             <vm:DetailsPageViewModel x:Name="ViewModel" />
         </Page.DataContext>
 
-        <RelativePanel Background="{ThemeResource SystemControlAcrylicElementMediumHighBrush}">
+        <RelativePanel>
 
-        <Grid Margin="128"
+        <Grid x:Name="BackgroundPanel"
+              RelativePanel.AlignBottomWithPanel="True"
+              RelativePanel.AlignTopWithPanel="True"
+              RelativePanel.AlignRightWithPanel="True"
+              RelativePanel.AlignLeftWithPanel="True"
+              Background="{ThemeResource SystemControlAcrylicElementMediumHighBrush}" />
+
+        <Grid Margin="32"
               RelativePanel.AlignVerticalCenterWithPanel="True"
               RelativePanel.AlignHorizontalCenterWithPanel="True">
             
             <!--  Video element  -->
-            <controls:MediaPlayerHover x:Name="MediaPlayerElement"
-                                       VerticalAlignment="Center"
-                                       VerticalContentAlignment="Center"
-                                       HorizontalAlignment="Center"
-                                       HorizontalContentAlignment="Center"
-                                       Visibility="{x:Bind ViewModel.IsVideo, Mode=OneWay}"
-                                       FileName="{x:Bind ViewModel.VideoMediaData.Title, Mode=OneWay}"/>
+            <Viewbox VerticalAlignment="Center"
+                     HorizontalAlignment="Center"
+                     StretchDirection="DownOnly"
+                     Visibility="{x:Bind ViewModel.IsVideo, Mode=OneWay}">
+                <controls:MediaPlayerHover x:Name="MediaPlayerElement"
+                                           FileName="{x:Bind ViewModel.VideoMediaData.Title, Mode=OneWay}"/>
+            </Viewbox>
 
             <!--  Image/Gif element  -->
             <Viewbox VerticalAlignment="Center"
@@ -40,8 +47,6 @@
                      StretchDirection="DownOnly"
                      Visibility="{x:Bind ViewModel.IsImage, Mode=OneWay}">
                 <controls:FastImage x:Name="ImageElement"
-                                   VerticalAlignment="Center"
-                                   HorizontalAlignment="Center"
                                     FileName="{x:Bind ViewModel.ImageMediaData.Title, Mode=OneWay}"/>
             </Viewbox>
 

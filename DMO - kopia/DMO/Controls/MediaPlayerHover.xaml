@@ -10,8 +10,7 @@
              d:DesignWidth="256"
              x:Name="Root"
              PointerEntered="MediaPlayer_PointerEntered"
-             PointerExited="MediaPlayer_PointerExited"
-             Background="Black">
+             PointerExited="MediaPlayer_PointerExited">
 
     <UserControl.Resources>
 

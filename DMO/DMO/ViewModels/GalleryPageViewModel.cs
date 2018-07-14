@@ -24,16 +24,22 @@ using DMO.Views;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Media.Animation;
 using DMO.Controls;
+using DMO.GoogleAPI;
 
 namespace DMO.ViewModels
 {
     public class GalleryPageViewModel : ViewModelBase
     {
+        #region Private Members
+
         private MediaData _transitionItem;
 
         private const string predictionKey = "3addceda86d8415e88cb2074d7763920";
-        const string uriBase = "https://southcentralus.api.cognitive.microsoft.com/customvision/v2.0/Prediction/59181889-0149-4bc1-845f-c70c6b1f6abd/image";
+        private const string uriBase = "https://southcentralus.api.cognitive.microsoft.com/customvision/v2.0/Prediction/59181889-0149-4bc1-845f-c70c6b1f6abd/image";
         private Gallery _gallery;
+
+        #endregion
+
         #region Public Properties
 
         public Gallery Gallery
@@ -157,11 +163,13 @@ namespace DMO.ViewModels
         {
             if (e.ClickedItem is MediaData mediaData)
             {
-                if (sender is GridView grid)
+                /*if (sender is GridView grid)
                 {
                     _transitionItem = mediaData;
 
                     var container = grid.ContainerFromItem(mediaData) as GridViewItem;
+                    //var subItem = Template10.Utils.XamlUtils.FirstChild<FastImage>(container);
+                    //var image = Template10.Utils.XamlUtils.FirstChild<Image>(subItem);
 
                     if (mediaData is ImageData)
                         grid.PrepareConnectedAnimation("detailsImage1", mediaData, "FastImage");
@@ -169,12 +177,15 @@ namespace DMO.ViewModels
                         grid.PrepareConnectedAnimation("detailsGif1", mediaData, "HoverGif");
                     if (mediaData is VideoData)
                         grid.PrepareConnectedAnimation("detailsVideo1", mediaData, "MediaPlayerHover");
-                }
-
-                await NavigationService.NavigateAsync(typeof(Views.DetailsPage), mediaData.MediaFile.Name);
+                    
+                    Debug.WriteLine($"{DateTime.Now.Second}:{DateTime.Now.Millisecond} Navigating to {nameof(DetailsPage)}...");
+                    await NavigationService.NavigateAsync(typeof(DetailsPage), mediaData.MediaFile.Name, new ContinuumNavigationTransitionInfo());
+                    Debug.WriteLine($"{DateTime.Now.Second}:{DateTime.Now.Millisecond} Navigated to {nameof(DetailsPage)}!");
+                }*/
+                await mediaData.EvaluateOnlineAsync(FirebaseClient.accessToken);
             }
         }
-
+        
         public async void GridViewLoaded(object sender, RoutedEventArgs e)
         {
             if (_transitionItem != null)
@@ -246,6 +257,27 @@ namespace DMO.ViewModels
                 await Gallery.EvaluateImages(progress);
                 IsEvaluatingImages = false;
 
+                string googleToken;
+                if (await GoogleClient.Client.GetAccessTokenWithoutAuthentication())
+                    googleToken = GoogleClient.accessToken;
+                else
+                    googleToken = await AuthModal.AuthorizeAndGetGoogleAccessTokenAsync();
+                Debug.WriteLine($"Google access token successfully aquired: {googleToken}");
+
+                if (await FirebaseClient.Client.SignInWithFirebaseAsync(googleToken))
+                {
+                    Debug.WriteLine($"Firebase access token successfully aquired: {FirebaseClient.accessToken}");
+                }
+                else
+                {
+                    // Could not log into firebase. Could be caused by a refresh token revocation, try re-authenticating with Google.
+                    googleToken = await AuthModal.AuthorizeAndGetGoogleAccessTokenAsync();
+                    // Retry firebase login.
+                    if (await FirebaseClient.Client.SignInWithFirebaseAsync(googleToken))
+                    {
+                        Debug.WriteLine($"Firebase access token successfully aquired: {FirebaseClient.accessToken}");
+                    }
+                }
             }
         }
 

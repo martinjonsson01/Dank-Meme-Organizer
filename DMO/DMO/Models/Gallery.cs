@@ -56,7 +56,8 @@ namespace DMO.Models
 
         public async Task LoadFolderContents(int imageSize)
         {
-            var folder = await StorageFolder.GetFolderFromPathAsync(RootFolderPath);
+            var folder = await StorageApplicationPermissions.FutureAccessList.GetFolderAsync("gallery");
+            //var folder = await StorageFolder.GetFolderFromPathAsync(RootFolderPath);
             // TODO: Set up a tracker to keep track of when new files get added to the file system while application is running.
             if (folder != null)
             {
@@ -193,15 +194,12 @@ namespace DMO.Models
             var evaluated = 0;
             foreach (var data in MediaDatas)
             {
-                if (data is ImageData image)
-                {
-                    // Evaluate image using classifier if it has no tags.
-                    if (image.Tags.Count < 1)
-                        await image.Evaluate(MemeClassifier);
-                    // Update and then report progress.
-                    evaluated++;
-                    progress.Report(evaluated);
-                }
+                // Evaluate media using classifier if it has no tags already.
+                if (data.Labels == null || data.Labels.Count < 1)
+                    await data.EvaluateLocalAsync(MemeClassifier);
+                // Update and then report progress.
+                evaluated++;
+                progress.Report(evaluated);
             }
             IsEvaluating = false;
             sw.Stop();

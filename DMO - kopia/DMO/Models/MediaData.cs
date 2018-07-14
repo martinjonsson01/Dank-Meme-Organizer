@@ -1,17 +1,39 @@
-﻿using Microsoft.Win32.SafeHandles;
+﻿using DMO.Database;
+using DMO.GoogleAPI;
+using DMO.GoogleAPI.Models;
+using DMO.ML;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
-using System.Runtime.InteropServices;
+using System.Linq;
 using System.Threading.Tasks;
+using Windows.Graphics.Imaging;
+using Windows.Media;
 using Windows.Storage;
+using Windows.Storage.Streams;
 
 namespace DMO.Models
 {
     public abstract class MediaData : BaseModel
     {
         #region Public Properties
+        
+        public List<Label> Labels { get; set; }
+        
+        public StorageFile MediaFile { get; set; }
 
-        public StorageFile MediaFile;
+        public AnnotateImageReponse AnnotationData { private get; set; }
+
+        public List<EntityAnnotation> TextAnnotations => AnnotationData?.TextAnnotations;
+
+        public SafeSearchAnnotation SafeSearch => AnnotationData?.SafeSearchAnnotation;
+
+        public List<ColorInfo> DominantColors => AnnotationData?.ImagePropertiesAnnotation?.DominantColors?.Colors;
+
+        public WebDetection WebDetection => AnnotationData?.WebDetection;
 
         /// <summary>
         /// Gets or sets the title of this Media.
@@ -27,12 +49,7 @@ namespace DMO.Models
 
         public DateTime LastModified { get; set; }
 
-        public DateTimeOffset Created => MediaFile.DateCreated;
-
-        /// <summary>
-        /// The unique file-system-wide identifier string of this file.
-        /// </summary>
-        public string Uid { get; }
+        public DateTimeOffset Created => MediaFile?.DateCreated ?? DateTimeOffset.Now;
 
         #endregion
 
@@ -41,7 +58,6 @@ namespace DMO.Models
         public MediaData(StorageFile file)
         {
             MediaFile = file;
-            Uid = GetNTFSUid();
         }
 
         #endregion
@@ -54,6 +70,7 @@ namespace DMO.Models
         /// <param name="value">The new name of this file.</param>
         public async void TryRenameFile(string value)
         {
+            if (MediaFile == null) return;
             if (string.IsNullOrEmpty(value)) return;
             if (value == Title) return;
             if (value.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0) return;
@@ -69,49 +86,91 @@ namespace DMO.Models
             OnPropertyChanged(nameof(Title));
         }
 
-        #region Interop stuff for NTFSUid methods
-
-        struct BY_HANDLE_FILE_INFORMATION
+        public async Task<JsonMediaData> ToJsonMediaData()
         {
-            public uint FileAttributes;
-            public System.Runtime.InteropServices.ComTypes.FILETIME CreationTime;
-            public System.Runtime.InteropServices.ComTypes.FILETIME LastAccessTime;
-            public System.Runtime.InteropServices.ComTypes.FILETIME LastWriteTime;
-            public uint VolumeSerialNumber;
-            public uint FileSizeHigh;
-            public uint FileSizeLow;
-            public uint NumberOfLinks;
-            public uint FileIndexHigh;
-            public uint FileIndexLow;
+            return new JsonMediaData
+            {
+                ID = await Task.Factory.StartNew(() => JsonConvert.SerializeObject(Labels, Formatting.Indented)),
+                Json = await Task.Factory.StartNew(() => JsonConvert.SerializeObject(this))
+            };
         }
-        [DllImport("kernel32.dll", SetLastError = true)]
-        private static extern bool GetFileInformationByHandle(SafeFileHandle hFile, out BY_HANDLE_FILE_INFORMATION lpFileInformation);
+
+        /// <summary>
+        /// Gets the thumbnail of this media. Returns one of the first frames of video medias and GIFs.
+        /// </summary>
+        /// <returns>one of the first frames of video medias and GIFs</returns>
+        public abstract Task<IRandomAccessStream> GetThumbnailAsync();
+
+        /// <summary>
+        /// Evaluates this Media using Google Cloud Vision and stores the results in this object.
+        /// </summary>
+        /// <param name="firebaseToken">The OAuth access token for firebase.</param>
+        public async Task EvaluateOnlineAsync(string firebaseToken)
+        {
+            var sw = new Stopwatch();
+            sw.Start();
+            var imageStream = await GetThumbnailAsync();
+            var result = await CloudVisionClient.Client.SendFirebaseAnalyzeRequest(imageStream, firebaseToken);
+            sw.Stop();
+            Debug.WriteLine($"Cloud vision request completed! Waited {sw.ElapsedMilliseconds} ms for response");
+
+            sw.Reset();
+            sw.Start();
+            // This is used to trim away the JSON array surrounding the response object.
+            // This is done because the response will never contain more than one response object.
+            var trimChars = new char[] { '[', ']' };
+            // Deserialize JSON on another thread.
+            var imageReponse = await Task.Run(() => JsonConvert.DeserializeObject<AnnotateImageReponse>(result.Trim(trimChars)));
+            sw.Stop();
+            Debug.WriteLine($"Response deserialization completed! Took {sw.ElapsedMilliseconds} ms");
+
+            // Assign response data to this object.
+            AnnotationData = imageReponse;
+        }
+
+        /// <summary>
+        /// Evaluates this Media using the local machine learning model and stores the results in this object.
+        /// </summary>
+        /// <param name="model">The local ML model to use when evaluating.</param>
+        /// <returns></returns>
+        public async Task EvaluateLocalAsync(MemeClassifierModel model)
+        {
+            // Create input using media thumbnail.
+            var input = await CreateMLInput();
+
+            // Evaluate input using local model...
+            var output = await model.EvaluateAsync(input);
+
+            // Order tags by descending loss, turn them into Label objects, and take the top 5.
+            var tagsAndLoss = output.Loss.OrderByDescending(pair => pair.Value)
+                .Select(pair => new Label { Name = pair.Key, Probability = pair.Value }).Take(5).ToList();
+            // Update Tags. TODO: Put tags in a persistent database.
+            Labels = tagsAndLoss;
+        }
 
         #endregion
 
-        /// <summary>
-        /// Opens a stream to the <see cref="StorageFile"/> of this object and gets the NTFS unique identifier from it.
-        /// </summary>
-        /// <returns>A unique file-system-wide identifier string.</returns>
-        public string GetNTFSUid()
-        {
-            using (var stream = new FileStream(MediaFile.CreateSafeFileHandle(), FileAccess.ReadWrite))
-            {
-                return GetNTFSUid(stream);
-            }
-        }
+        #region Private Methods
 
-        /// <summary>
-        /// Uses the SafeFileHandle of the provided <see cref="FileStream"/> to access the _BY_HANDLE_FILE_INFORMATION structure
-        /// to get the VolumeSerialNumber, FileIndexHigh and FileIndexLow which are then concatenated and returned as a string.
-        /// </summary>
-        /// <param name="stream">The open read-access file stream to the file.</param>
-        /// <returns>A unique file-system-wide identifier string.</returns>
-        public static string GetNTFSUid(FileStream stream)
+        private async Task<MemeClassifierModelInput> CreateMLInput()
         {
-            BY_HANDLE_FILE_INFORMATION hInfo = new BY_HANDLE_FILE_INFORMATION();
-            GetFileInformationByHandle(stream.SafeFileHandle, out hInfo);
-            return $"{hInfo.VolumeSerialNumber}{hInfo.FileIndexHigh}{hInfo.FileIndexLow}";
+            var input = new MemeClassifierModelInput();
+            
+            SoftwareBitmap softwareBitmap;
+            using (var imageStream = await GetThumbnailAsync())
+            {
+                // Create the decoder from the stream 
+                var decoder = await BitmapDecoder.CreateAsync(imageStream);
+
+                // Get the SoftwareBitmap representation of the file in BGRA8 format
+                softwareBitmap = await decoder.GetSoftwareBitmapAsync();
+                softwareBitmap = SoftwareBitmap.Convert(softwareBitmap, BitmapPixelFormat.Bgra8, BitmapAlphaMode.Premultiplied);
+                
+                // Apply data to input.
+                input.Data = VideoFrame.CreateWithSoftwareBitmap(softwareBitmap);
+            }
+
+            return input;
         }
 
         #endregion

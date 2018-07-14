@@ -1,8 +1,12 @@
-﻿using System;
+﻿using DMO.GoogleAPI;
+using DMO.ML;
+using System;
+using System.IO;
+using System.Threading.Tasks;
+using Windows.Graphics.Imaging;
+using Windows.Media;
 using Windows.Storage;
-using Windows.Storage.FileProperties;
-using Windows.UI.Xaml.Media;
-using Windows.UI.Xaml.Media.Imaging;
+using Windows.Storage.Streams;
 
 namespace DMO.Models
 {
@@ -11,6 +15,11 @@ namespace DMO.Models
         public GifData(StorageFile file) : base(file)
         {
 
+        }
+
+        public override async Task<IRandomAccessStream> GetThumbnailAsync()
+        {
+            return await MediaFile.OpenAsync(FileAccessMode.Read);
         }
     }
 }

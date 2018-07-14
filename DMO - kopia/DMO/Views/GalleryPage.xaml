@@ -10,6 +10,7 @@
       xmlns:models="using:DMO.Models"
       xmlns:services="using:DMO.Services"
       xmlns:converters="using:DMO.Converters"
+      xmlns:Controls="using:Template10.Controls"
       xmlns:control="using:DMO.Controls"
       xmlns:behaviours="using:DMO.Behaviours"
       xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -200,16 +201,30 @@
                        RelativePanel.AlignRightWithPanel="True"
                        Visibility="{x:Bind ViewModel.IsMediaLoading, Mode=OneWay}">
 
-            <local:Busy x:Name="tb_LoadingIndicator"
+            <ProgressRing x:Name="tb_LoadingIndicator"
+                          Width="60"
+                          Height="60"
                         RelativePanel.AlignHorizontalCenterWithPanel="True"
-                        IsBusy="{x:Bind ViewModel.IsMediaLoading, Mode=OneWay}" />
+                        IsActive="{x:Bind ViewModel.IsMediaLoading, Mode=OneWay}" />
 
             <TextBlock RelativePanel.Below="tb_LoadingIndicator"
                        RelativePanel.AlignHorizontalCenterWith="tb_LoadingIndicator"
                        Margin="0, 20, 0, 0"
                        Text="{x:Bind ViewModel.LoadingProgressStatus, Mode=OneWay}" />
 
-        </RelativePanel> 
+        </RelativePanel>
+        
+        <Controls:ModalDialog x:Name="BusyModal" CanBackButtonDismiss="True" DisableBackButtonWhenModal="True">
+            <Controls:ModalDialog.ModalContent>
+                <Viewbox Height="32" VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <StackPanel Orientation="Horizontal">
+                        <ProgressRing x:Name="BusyRing" Width="24" Height="24" Margin="12,0"
+                            Foreground="White" IsActive="{Binding IsModal, ElementName=BusyModal}" />
+                        <TextBlock x:Name="BusyText" VerticalAlignment="Center" Foreground="White" />
+                    </StackPanel>
+                </Viewbox>
+            </Controls:ModalDialog.ModalContent>
+        </Controls:ModalDialog>
         
     </RelativePanel>
 </Page>
