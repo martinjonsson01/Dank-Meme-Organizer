@@ -301,3 +301,4 @@ __pycache__/
 # Windows store application data
 Package.appxmanifest
 Package.StoreAssociation.xml
+*.appxmanifest
