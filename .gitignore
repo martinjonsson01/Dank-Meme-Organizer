@@ -297,3 +297,7 @@ __pycache__/
 *.btm.cs
 *.odx.cs
 *.xsd.cs
+
+# Windows store application data
+Package.appxmanifest
+Package.StoreAssociation.xml
