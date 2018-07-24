@@ -27,6 +27,14 @@ namespace DMO.Models
 
         }
 
+        /// <summary>
+        /// To be used by EntityFramework only.
+        /// </summary>
+        public VideoData() : base()
+        {
+
+        }
+
         public override async Task<IRandomAccessStream> GetThumbnailAsync()
         {
             var mediaClip = await MediaClip.CreateFromFileAsync(MediaFile);

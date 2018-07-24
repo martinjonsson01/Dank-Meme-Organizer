@@ -15,5 +15,23 @@ namespace DMO.Utility
                 action(i);
             }
         }
+
+        public static bool ListEquals<T>(this IList<T> list, IList<T> other)
+        {
+            if (other is null)
+                return false;
+            if (list.Count != other.Count)
+                return false;
+            
+            for (var i = 0; i < list.Count; i++)
+            {
+                var listObj = list[i];
+
+                if (!other.Contains(listObj))
+                    return false;
+            }
+
+            return true;
+        }
     }
 }

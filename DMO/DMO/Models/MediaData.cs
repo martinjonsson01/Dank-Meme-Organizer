@@ -1,11 +1,13 @@
-﻿using DMO.Database;
+﻿using DMO.Extensions;
 using DMO.GoogleAPI;
-using DMO.GoogleAPI.Models;
 using DMO.ML;
+using DMO_Model.GoogleAPI.Models;
+using DMO_Model.Models;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -13,6 +15,8 @@ using System.Threading.Tasks;
 using Windows.Graphics.Imaging;
 using Windows.Media;
 using Windows.Storage;
+using Windows.Storage.AccessCache;
+using Windows.Storage.FileProperties;
 using Windows.Storage.Streams;
 
 namespace DMO.Models
@@ -21,19 +25,23 @@ namespace DMO.Models
     {
         #region Public Properties
         
-        public List<Label> Labels { get; set; }
-        
+        [JsonIgnore]
         public StorageFile MediaFile { get; set; }
 
-        public AnnotateImageReponse AnnotationData { private get; set; }
+        [JsonIgnore]
+        public BasicProperties BasicProperties { get; set; }
 
-        public List<EntityAnnotation> TextAnnotations => AnnotationData?.TextAnnotations;
+        public MediaMetadata Meta { get; set; } = new MediaMetadata();
 
-        public SafeSearchAnnotation SafeSearch => AnnotationData?.SafeSearchAnnotation;
+        public List<EntityAnnotation> TextAnnotations => Meta?.AnnotationData?.TextAnnotations;
 
-        public List<ColorInfo> DominantColors => AnnotationData?.ImagePropertiesAnnotation?.DominantColors?.Colors;
+        public SafeSearchAnnotation SafeSearch => Meta?.AnnotationData?.SafeSearchAnnotation;
 
-        public WebDetection WebDetection => AnnotationData?.WebDetection;
+        public List<ColorInfo> DominantColors => Meta?.AnnotationData?.ImagePropertiesAnnotation?.DominantColors?.Colors;
+
+        public WebDetection WebDetection => Meta?.AnnotationData?.WebDetection;
+
+        public bool Evaluating { get; set; }
 
         /// <summary>
         /// Gets or sets the title of this Media.
@@ -46,9 +54,7 @@ namespace DMO.Models
             get => MediaFile?.Name;
             set => TryRenameFile(value);
         }
-
-        public DateTime LastModified { get; set; }
-
+        
         public DateTimeOffset Created => MediaFile?.DateCreated ?? DateTimeOffset.Now;
 
         #endregion
@@ -58,11 +64,67 @@ namespace DMO.Models
         public MediaData(StorageFile file)
         {
             MediaFile = file;
+            Meta.MediaFilePath = file.Path;
+        }
+
+        /// <summary>
+        /// To be used by EntityFramework and Serialization only.
+        /// </summary>
+        public MediaData()
+        {
+
         }
 
         #endregion
 
         #region Public Methods
+
+        public static async Task<MediaData> CreateFromMediaMetadataAsync(MediaMetadata metadata)
+        {
+            StorageFile mediaFile = null;
+            try
+            {
+                // Try to load file from path. If not successful, the file might have been deleted, moved, or renamed.
+                // In the case that it has been renamed, it should be scanned by the local ML and recognized as already existing
+                // in the database, in which case it will update the path listed there.
+                mediaFile = await StorageFile.GetFileFromPathAsync(metadata.MediaFilePath);
+            }
+            catch (Exception e)
+            {
+                Debug.WriteLine(e.Message);
+                Debug.WriteLine(e.StackTrace);
+                return null;
+            }
+            // Sanity check.
+            if (mediaFile == null) return null;
+
+            // Create instance of MediaData descendant depending on file type.
+            var mediaData = CreateFromStorageFile(mediaFile);
+
+            // Assign metadata object to MediaData.
+            mediaData.Meta = metadata;
+
+            return mediaData;
+        }
+
+        public static MediaData CreateFromStorageFile(StorageFile mediaFile)
+        {
+            //
+            // Instantiate MediaData type depending on FileType.
+            //
+            if (mediaFile.FileType == ".gif")
+            {
+                return new GifData(mediaFile);
+            }
+            else if (mediaFile.IsVideo())
+            {
+                return new VideoData(mediaFile);
+            }
+            else
+            {
+                return new ImageData(mediaFile);
+            }
+        }
 
         /// <summary>
         /// Tries to rename this file to the provided value.
@@ -85,16 +147,7 @@ namespace DMO.Models
             App.Files.Add(value, MediaFile);
             OnPropertyChanged(nameof(Title));
         }
-
-        public async Task<JsonMediaData> ToJsonMediaData()
-        {
-            return new JsonMediaData
-            {
-                ID = await Task.Factory.StartNew(() => JsonConvert.SerializeObject(Labels, Formatting.Indented)),
-                Json = await Task.Factory.StartNew(() => JsonConvert.SerializeObject(this))
-            };
-        }
-
+        
         /// <summary>
         /// Gets the thumbnail of this media. Returns one of the first frames of video medias and GIFs.
         /// </summary>
@@ -107,6 +160,11 @@ namespace DMO.Models
         /// <param name="firebaseToken">The OAuth access token for firebase.</param>
         public async Task EvaluateOnlineAsync(string firebaseToken)
         {
+            // Run on UI thread.
+            await App.Current.NavigationService.Frame.Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () => {
+                Evaluating = true;
+            });
+
             var sw = new Stopwatch();
             sw.Start();
             var imageStream = await GetThumbnailAsync();
@@ -125,7 +183,12 @@ namespace DMO.Models
             Debug.WriteLine($"Response deserialization completed! Took {sw.ElapsedMilliseconds} ms");
 
             // Assign response data to this object.
-            AnnotationData = imageReponse;
+            Meta.AnnotationData = imageReponse;
+
+            // Run on UI thread.
+            await App.Current.NavigationService.Frame.Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () => {
+                Evaluating = false;
+            });
         }
 
         /// <summary>
@@ -135,6 +198,8 @@ namespace DMO.Models
         /// <returns></returns>
         public async Task EvaluateLocalAsync(MemeClassifierModel model)
         {
+            Evaluating = true;
+
             // Create input using media thumbnail.
             var input = await CreateMLInput();
 
@@ -142,10 +207,12 @@ namespace DMO.Models
             var output = await model.EvaluateAsync(input);
 
             // Order tags by descending loss, turn them into Label objects, and take the top 5.
-            var tagsAndLoss = output.Loss.OrderByDescending(pair => pair.Value)
-                .Select(pair => new Label { Name = pair.Key, Probability = pair.Value }).Take(5).ToList();
-            // Update Tags. TODO: Put tags in a persistent database.
-            Labels = tagsAndLoss;
+            var orderedByDescending = output.Loss.OrderByDescending(pair => pair.Value);
+            var tagsAndLoss = orderedByDescending.Select(pair => new Label { Name = pair.Key, Probability = pair.Value }).Take(Math.Min(5, orderedByDescending.Count())).ToList();
+            // Update Tags.
+            Meta.Labels = new ObservableCollection<Label>(tagsAndLoss);
+
+            Evaluating = false;
         }
 
         #endregion
@@ -155,7 +222,7 @@ namespace DMO.Models
         private async Task<MemeClassifierModelInput> CreateMLInput()
         {
             var input = new MemeClassifierModelInput();
-            
+
             SoftwareBitmap softwareBitmap;
             using (var imageStream = await GetThumbnailAsync())
             {
@@ -165,7 +232,7 @@ namespace DMO.Models
                 // Get the SoftwareBitmap representation of the file in BGRA8 format
                 softwareBitmap = await decoder.GetSoftwareBitmapAsync();
                 softwareBitmap = SoftwareBitmap.Convert(softwareBitmap, BitmapPixelFormat.Bgra8, BitmapAlphaMode.Premultiplied);
-                
+
                 // Apply data to input.
                 input.Data = VideoFrame.CreateWithSoftwareBitmap(softwareBitmap);
             }

@@ -17,6 +17,14 @@ namespace DMO.Models
 
         }
 
+        /// <summary>
+        /// To be used by EntityFramework only.
+        /// </summary>
+        public GifData() : base()
+        {
+
+        }
+
         public override async Task<IRandomAccessStream> GetThumbnailAsync()
         {
             return await MediaFile.OpenAsync(FileAccessMode.Read);

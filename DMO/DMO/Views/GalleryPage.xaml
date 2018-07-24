@@ -37,12 +37,23 @@
                     <RowDefinition Height="*" />
                     <RowDefinition Height="32" />
                 </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="32" />
+                </Grid.ColumnDefinitions>
                 <control:FastImage x:Name="FastImage"
+                                   Grid.Column="0"
+                                   Grid.ColumnSpan="2"
+                                   Grid.Row="0"
                                    Margin="0, 0, 0, 0"
                                    FileName="{x:Bind Title, Mode=OneTime}"/>
                 <control:FileNameTextBox x:Phase="0"
+                                         Grid.Column="0"
                                          Grid.Row="1"
                                          Text="{x:Bind Title, Mode=TwoWay}"/>
+                <ProgressRing IsActive="{x:Bind Evaluating, Mode=OneWay}" 
+                              Grid.Column="1"
+                              Grid.Row="1"/>
             </Grid>
         </DataTemplate>
         <DataTemplate x:Key="VideoTemplate"
@@ -56,15 +67,26 @@
                     <RowDefinition Height="*" />
                     <RowDefinition Height="32" />
                 </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="32" />
+                </Grid.ColumnDefinitions>
                 <control:MediaPlayerHover x:Name="MediaPlayerHover"
+                                          Grid.Column="0"
+                                          Grid.ColumnSpan="2"
+                                          Grid.Row="0"
                                           Margin="0, 0, 0, 0"
                                           x:Phase="1"
                                           FileName="{x:Bind Title, Mode=OneTime}"
                                           Suspended="{x:Bind Suspended, Mode=OneWay}">
                 </control:MediaPlayerHover>
                 <control:FileNameTextBox x:Phase="0"
+                                         Grid.Column="0"
                                          Grid.Row="1"
                                          Text="{x:Bind Title, Mode=TwoWay}"/>
+                <ProgressRing IsActive="{x:Bind Evaluating, Mode=OneWay}" 
+                              Grid.Column="1"
+                              Grid.Row="1"/>
             </Grid>
         </DataTemplate>
         <DataTemplate x:Key="GifTemplate"
@@ -78,13 +100,24 @@
                     <RowDefinition Height="*" />
                     <RowDefinition Height="32" />
                 </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="32" />
+                </Grid.ColumnDefinitions>
                 <control:HoverGif x:Name="HoverGif"
+                                  Grid.Column="0"
+                                  Grid.ColumnSpan="2"
+                                  Grid.Row="0"
                                   x:Phase="1"
                                   Margin="0"
                                   FileName="{x:Bind Title, Mode=OneTime}"/>
                 <control:FileNameTextBox x:Phase="0"
+                                         Grid.Column="0"
                                          Grid.Row="1"
                                          Text="{x:Bind Title, Mode=TwoWay}"/>
+                <ProgressRing IsActive="{x:Bind Evaluating, Mode=OneWay}" 
+                              Grid.Column="1"
+                              Grid.Row="1"/>
             </Grid>
         </DataTemplate>
 
@@ -95,7 +128,7 @@
 
     </Page.Resources>
 
-    <RelativePanel Background="{ThemeResource SystemControlAcrylicElementBrush}">
+    <RelativePanel Background="{ThemeResource SystemControlAcrylicWindowBrush}">
 
         <RelativePanel x:Name="Topbar"
                        Height="60"
@@ -119,6 +152,7 @@
                          RelativePanel.AlignLeftWith="SearchBox"
                          RelativePanel.AlignRightWith="SearchBox"
                          Margin="0, 4, 0, 0"
+                         Visibility="{x:Bind ViewModel.IsEvaluatingImages, Mode=OneWay}"
                          Value="{x:Bind ViewModel.EvaluationProgress, Mode=OneWay}" />
 
             <CommandBar x:Name="ToolBar"

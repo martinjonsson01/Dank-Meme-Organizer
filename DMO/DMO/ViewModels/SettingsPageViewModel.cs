@@ -1,4 +1,6 @@
-﻿using DMO.Views;
+﻿using DMO.Database;
+using DMO.Utility;
+using DMO.Views;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -31,6 +33,11 @@ namespace DMO.ViewModels
             => _changeFolderCommand ?? (_changeFolderCommand = new DelegateCommand(async () =>
             {
                 _settings.FolderPath = null;
+                // Clear database of old gallery data.
+                using (var context = new MediaMetaDatabaseContext())
+                {
+                    context.DeleteAllMetadatas();
+                }
                 var nav = WindowWrapper.Current().NavigationServices.FirstOrDefault();
                 await nav.NavigateAsync(typeof(FolderSelectPage));
             }));

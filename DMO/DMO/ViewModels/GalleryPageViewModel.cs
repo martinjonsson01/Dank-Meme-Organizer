@@ -25,6 +25,9 @@ using Windows.UI.Xaml;
 using Windows.UI.Xaml.Media.Animation;
 using DMO.Controls;
 using DMO.GoogleAPI;
+using DMO.Database;
+using System.Threading;
+using Newtonsoft.Json;
 
 namespace DMO.ViewModels
 {
@@ -37,6 +40,8 @@ namespace DMO.ViewModels
         private const string predictionKey = "3addceda86d8415e88cb2074d7763920";
         private const string uriBase = "https://southcentralus.api.cognitive.microsoft.com/customvision/v2.0/Prediction/59181889-0149-4bc1-845f-c70c6b1f6abd/image";
         private Gallery _gallery;
+
+        private CancellationTokenSource _evaluationCancellationTokenSource = new CancellationTokenSource();
 
         #endregion
 
@@ -85,7 +90,7 @@ namespace DMO.ViewModels
             set => SettingsService.Instance.SortBy = value;
         }
 
-        public string SearchQuery { get; set; }
+        public string SearchQuery { get; set; } = string.Empty;
 
         public string SearchPlaceHolderText
         {
@@ -114,7 +119,7 @@ namespace DMO.ViewModels
 
         public GalleryPageViewModel() : base()
         {
-
+            
         }
 
         #endregion
@@ -163,7 +168,7 @@ namespace DMO.ViewModels
         {
             if (e.ClickedItem is MediaData mediaData)
             {
-                /*if (sender is GridView grid)
+                if (sender is GridView grid)
                 {
                     _transitionItem = mediaData;
 
@@ -181,11 +186,10 @@ namespace DMO.ViewModels
                     Debug.WriteLine($"{DateTime.Now.Second}:{DateTime.Now.Millisecond} Navigating to {nameof(DetailsPage)}...");
                     await NavigationService.NavigateAsync(typeof(DetailsPage), mediaData.MediaFile.Name, new ContinuumNavigationTransitionInfo());
                     Debug.WriteLine($"{DateTime.Now.Second}:{DateTime.Now.Millisecond} Navigated to {nameof(DetailsPage)}!");
-                }*/
-                await mediaData.EvaluateOnlineAsync(FirebaseClient.accessToken);
+                }
             }
         }
-        
+
         public async void GridViewLoaded(object sender, RoutedEventArgs e)
         {
             if (_transitionItem != null)
@@ -220,6 +224,8 @@ namespace DMO.ViewModels
         {
             if (mode != NavigationMode.Back)
             {
+                // Create new token source.
+                _evaluationCancellationTokenSource = new CancellationTokenSource();
 
                 IsMediaLoading = true;
                 if (state.Any())
@@ -228,60 +234,83 @@ namespace DMO.ViewModels
                     TileSize = (int)state[nameof(TileSize)];
 
                     // Load Gallery.
-                    await LoadGallery();
+                    await LoadGalleryFromFolderAsync();
                 }
                 else if (parameter is GalleryFolderChooser chooser)
                 {
-                    // Greate gallery from chooser result.
+                    // Greate gallery from folderPath.
                     Gallery = new Gallery(chooser.FolderPath);
                     // Load Gallery.
-                    await LoadGallery();
+                    await LoadGalleryFromFolderAsync();
                 }
-                else if (parameter is string folderPath)
+                else if (parameter is string mediaDatasJson && mediaDatasJson == nameof(App.MediaDatas))
                 {
-                    // Greate gallery from folderPath.
-                    Gallery = new Gallery(folderPath);
+                    // Greate gallery from mediaDatas.
+                    Gallery = new Gallery();
                     // Load Gallery.
-                    await LoadGallery();
+                    await LoadGalleryFromMediaDatasAsync(App.MediaDatas);
+                }
+                else // Default behaviour.
+                {
+                    // Throw error if folderpath is null.
+                    if (string.IsNullOrEmpty(SettingsService.Instance.FolderPath))
+                        throw new ArgumentNullException($"{nameof(SettingsService.Instance.FolderPath)} is null. Could not create gallery.");
+
+                    // Greate gallery from folderPath.
+                    Gallery = new Gallery(SettingsService.Instance.FolderPath);
+                    // Load Gallery.
+                    await LoadGalleryFromFolderAsync();
                 }
                 IsMediaLoading = false;
 
                 IsEvaluatingImages = true;
                 // Create progress object to report back evaluation progress.
                 var progress = new Progress<int>();
-                progress.ProgressChanged += (sender, evaluated) =>
+                progress.ProgressChanged += (sender, evaluated) => { EvaluationProgress = ((float)evaluated / Math.Max(Gallery.MediaDatas.Count, 0)) * 100; };
+                try
                 {
-                    EvaluationProgress = ((float)evaluated / Gallery.ImageCount) * 100;
-                };
-                // Now use machine learning to automatically tag all images in gallery as a background task.
-                await Gallery.EvaluateImages(progress);
-                IsEvaluatingImages = false;
-
-                string googleToken;
-                if (await GoogleClient.Client.GetAccessTokenWithoutAuthentication())
-                    googleToken = GoogleClient.accessToken;
-                else
-                    googleToken = await AuthModal.AuthorizeAndGetGoogleAccessTokenAsync();
-                Debug.WriteLine($"Google access token successfully aquired: {googleToken}");
-
-                if (await FirebaseClient.Client.SignInWithFirebaseAsync(googleToken))
-                {
-                    Debug.WriteLine($"Firebase access token successfully aquired: {FirebaseClient.accessToken}");
+                    // Now use machine learning to automatically tag all images in gallery as a background task.
+                    await Gallery.EvaluateImagesLocally(progress, _evaluationCancellationTokenSource.Token);
                 }
-                else
+                catch (OperationCanceledException e)
                 {
-                    // Could not log into firebase. Could be caused by a refresh token revocation, try re-authenticating with Google.
-                    googleToken = await AuthModal.AuthorizeAndGetGoogleAccessTokenAsync();
-                    // Retry firebase login.
-                    if (await FirebaseClient.Client.SignInWithFirebaseAsync(googleToken))
+                    // Task was cancelled.
+                    Debug.WriteLine($"EvaluateImagesLocally: {e.Message}");
+
+                    // Save local results to database.
+                    using (var context = new MediaMetaDatabaseContext())
                     {
-                        Debug.WriteLine($"Firebase access token successfully aquired: {FirebaseClient.accessToken}");
+                        await context.SaveAllMetadatasAsync(Gallery.MediaDatas);
                     }
+                }
+                
+                // Create new progress object to report back evaluation progress.
+                progress = new Progress<int>();
+                progress.ProgressChanged += (sender, evaluated) => { EvaluationProgress = ((float)evaluated / Math.Max(Gallery.MediaDatas.Count, 0)) * 100; };
+                try
+                {
+                    // Use Google Cloud Vision to evaluate media in gallery online.
+                    await Gallery.EvaluateImagesOnline(progress, _evaluationCancellationTokenSource.Token);
+                }
+                catch (OperationCanceledException e)
+                {
+                    // Task was cancelled.
+                    Debug.WriteLine($"EvaluateImagesOnline: {e.Message}");
+
+                    // Save online results to database.
+                    using (var context = new MediaMetaDatabaseContext())
+                    {
+                        await context.SaveAllMetadatasAsync(Gallery.MediaDatas);
+                    }
+                }
+                finally
+                {
+                    IsEvaluatingImages = false;
                 }
             }
         }
 
-        public override Task OnNavigatedFromAsync(IDictionary<string, object> pageState, bool suspending)
+        public override async Task OnNavigatedFromAsync(IDictionary<string, object> pageState, bool suspending)
         {
             if (suspending)
             {
@@ -294,13 +323,16 @@ namespace DMO.ViewModels
                         video.Suspended = true;
                     }
                 }
-            }
-            return Task.CompletedTask;
-        }
 
-        public override Task OnNavigatingFromAsync(NavigatingEventArgs args)
-        {
-            return base.OnNavigatingFromAsync(args);
+                // Cancel all current media evaluation processes.
+                _evaluationCancellationTokenSource.Cancel();
+
+                using (var context = new MediaMetaDatabaseContext())
+                {
+                    // Save all metadatas asynchronously before suspending.
+                    await context.SaveAllMetadatasAsync(Gallery.MediaDatas);
+                }
+            }
         }
 
         #endregion
@@ -316,7 +348,7 @@ namespace DMO.ViewModels
                     sortProperty = nameof(MediaData.Title);
                     break;
                 case "Last Modified":
-                    sortProperty = nameof(MediaData.LastModified);
+                    sortProperty = nameof(MediaData.Meta.LastModified);
                     break;
                 case "Created":
                     sortProperty = nameof(MediaData.Created);
@@ -325,7 +357,7 @@ namespace DMO.ViewModels
             return new SortDescription(sortProperty, DirectionSort);
         }
 
-        private async Task LoadGallery()
+        private async Task LoadGalleryFromFolderAsync()
         {
             SearchResults = new AdvancedCollectionView(Gallery.MediaDatas, true);
             // Apply sort description.
@@ -336,56 +368,23 @@ namespace DMO.ViewModels
                 // Load folder contents.
                 await Gallery.LoadFolderContents(TileSize);
             }
+            // Update static list.
+            App.MediaDatas = Gallery.MediaDatas.ToList();
         }
 
-        private async Task MakeAnalysisWebRequest(StorageFile imageStorageFile)
+        private async Task LoadGalleryFromMediaDatasAsync(ICollection<MediaData> mediaDatas)
         {
-            try
+            SearchResults = new AdvancedCollectionView(Gallery.MediaDatas, true);
+            // Apply sort description.
+            SearchResults.SortDescriptions.Add(GetSortDescription(SettingsService.Instance.SortBy));
+            // Scan all media in gallery.
+            using (SearchResults.DeferRefresh()) // Defer list updating until all items have been added.
             {
-                HttpClient client = new HttpClient();
-
-                // Request headers.
-                /*client.DefaultRequestHeaders.Add(
-                    "Ocp-Apim-Subscription-Key", subscriptionKey);
-
-                // Request parameters. A third optional parameter is "details".
-                string requestParameters =
-                    "visualFeatures=Categories";*/
-
-                // Assemble the URI for the REST API Call.
-                string uri = uriBase/* + "?" + requestParameters*/;
-
-                HttpResponseMessage response;
-
-                // Request body. Posts a locally stored JPEG image.
-                byte[] byteData = await GetImageAsByteArray(imageStorageFile);
-
-                using (var content = new ByteArrayContent(byteData))
-                {
-                    // Authorize with key.
-                    content.Headers.Add("Prediction-Key", predictionKey);
-
-                    // This example uses content type "application/octet-stream".
-                    // The other content types you can use are "application/json"
-                    // and "multipart/form-data".
-                    content.Headers.ContentType =
-                        new MediaTypeHeaderValue("application/octet-stream");
-
-                    // Make the REST API call.
-                    response = await client.PostAsync(uri, content);
-                }
-
-                // Get the JSON response.
-                string contentString = await response.Content.ReadAsStringAsync();
-
-                // Display the JSON response.
-                Debug.WriteLine("\nResponse:\n");
-                Debug.WriteLine(JsonPrettyPrint(contentString));
+                // Load media files.
+                await Gallery.LoadMediaFiles(mediaDatas, TileSize);
             }
-            catch (Exception e)
-            {
-                Debug.WriteLine("\n" + e.Message);
-            }
+            // Update static list.
+            App.MediaDatas = Gallery.MediaDatas.ToList();
         }
 
         /// <summary>

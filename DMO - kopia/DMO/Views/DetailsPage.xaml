@@ -9,6 +9,8 @@
       xmlns:local="using:DMO.Views"
       xmlns:converters="using:DMO.Converters"
       xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      xmlns:googleModels="using:DMO_Model.GoogleAPI.Models"
+      Background="{ThemeResource SystemControlAcrylicElementBrush}"
       xmlns:vm="using:DMO.ViewModels" mc:Ignorable="d">
 
     <Page.Resources>
@@ -19,39 +21,155 @@
             <vm:DetailsPageViewModel x:Name="ViewModel" />
         </Page.DataContext>
 
+    <!--<Grid x:Name="BackgroundPanel"
+                RelativePanel.AlignBottomWithPanel="True"
+                RelativePanel.AlignTopWithPanel="True"
+                RelativePanel.AlignRightWithPanel="True"
+                RelativePanel.AlignLeftWithPanel="True"
+                 />-->
+
+    <SplitView x:Name="splitView" 
+               PaneBackground="{ThemeResource SystemControlAcrylicWindowBrush}" 
+               IsPaneOpen="{x:Bind ViewModel.InfoOpen, Mode=OneWay}"
+               OpenPaneLength="336" 
+               DisplayMode="Inline">
+        <SplitView.Pane>
+            <StackPanel Margin="{x:Bind ViewModel.TitleBarMargin, Converter={StaticResource TopThicknessConverter}, Mode=OneWay}"
+                        Spacing="28">
+                
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="100"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Meme Info"
+                               FontSize="30"
+                               VerticalAlignment="Center"
+                               x:Name="PaneHeader"
+                               Margin="16,0,0,0"
+                               Style="{StaticResource NavigationViewItemHeaderTextStyle}"/>
+                    <Button x:Name="InfoCloseButton"
+                            Command="{x:Bind ViewModel.InfoCommand}"
+                            Style="{StaticResource ButtonRevealStyle}"
+                            Background="Transparent"
+                            Grid.Column="1"
+                            Width="80"
+                            Height="80"
+                            Padding="0"
+                            VerticalAlignment="Center"
+                            HorizontalAlignment="Center"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center">
+                        <TextBlock FontFamily="Segoe MDL2 Assets" 
+                                   Text="&#xE89F;"
+                                   FontSize="30"
+                                   Foreground="{StaticResource SystemAccentColorBrush}"
+                                   RenderTransformOrigin="0.5,0.5">
+                            <TextBlock.RenderTransform>
+                                <RotateTransform Angle="180" />
+                            </TextBlock.RenderTransform>
+                        </TextBlock>
+                    </Button>
+                </Grid>
+
+                <StackPanel Margin="20, 0, 20, 0">
+                    <TextBlock Text="Filename" 
+                               Foreground="{StaticResource InfoHeaderTextColorBrush}"/>
+                    <TextBox Text="{x:Bind ViewModel.Filename, Mode=TwoWay}"/>
+                </StackPanel>
+
+                <StackPanel Margin="20, 0, 20, 0">
+                    <TextBlock Text="Created" 
+                               Foreground="{StaticResource InfoHeaderTextColorBrush}"/>
+                    <TextBlock Text="{x:Bind ViewModel.Created, Mode=OneWay}"
+                               IsTextSelectionEnabled="True"/>
+                </StackPanel>
+
+                <StackPanel Margin="20, 0, 20, 0">
+                    <TextBlock Text="Added" 
+                               Foreground="{StaticResource InfoHeaderTextColorBrush}"/>
+                    <TextBlock Text="{x:Bind ViewModel.Added, Mode=OneWay}"
+                               IsTextSelectionEnabled="True"/>
+                </StackPanel>
+
+                <StackPanel Margin="20, 0, 20, 0">
+                    <TextBlock Text="Size" 
+                               Foreground="{StaticResource InfoHeaderTextColorBrush}"/>
+                    <TextBlock Text="{x:Bind ViewModel.Size, Mode=OneWay}"
+                               IsTextSelectionEnabled="True"/>
+                </StackPanel>
+
+                <StackPanel Margin="20, 0, 20, 0">
+                    <TextBlock Text="Dimensions" 
+                               Foreground="{StaticResource InfoHeaderTextColorBrush}"/>
+                    <TextBlock Text="{x:Bind ViewModel.Dimensions, Mode=OneWay}"
+                               IsTextSelectionEnabled="True"/>
+                </StackPanel>
+
+                <StackPanel Margin="20, 0, 20, 0">
+                    <TextBlock Text="Text" 
+                               Foreground="{StaticResource InfoHeaderTextColorBrush}"/>
+                    <TextBlock Text="{x:Bind ViewModel.Text, Mode=OneWay}"
+                               IsTextSelectionEnabled="True"/>
+                </StackPanel>
+
+                <StackPanel Margin="20, 0, 20, 0">
+                    <TextBlock Text="Entities" 
+                               Foreground="{StaticResource InfoHeaderTextColorBrush}"/>
+                    <ListView ItemsSource="{x:Bind ViewModel.Entities}">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="googleModels:WebEntity">
+                                <TextBlock Text="{x:Bind Description, Mode=OneWay}"
+                                           IsTextSelectionEnabled="True"/>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </StackPanel>
+
+            </StackPanel>
+        </SplitView.Pane>
+
+
         <RelativePanel>
 
-        <Grid x:Name="BackgroundPanel"
-              RelativePanel.AlignBottomWithPanel="True"
-              RelativePanel.AlignTopWithPanel="True"
-              RelativePanel.AlignRightWithPanel="True"
-              RelativePanel.AlignLeftWithPanel="True"
-              Background="{ThemeResource SystemControlAcrylicElementMediumHighBrush}" />
-
-        <Grid Margin="32"
-              RelativePanel.AlignVerticalCenterWithPanel="True"
-              RelativePanel.AlignHorizontalCenterWithPanel="True">
+            <CommandBar RelativePanel.AlignTopWithPanel="True"
+                        RelativePanel.AlignHorizontalCenterWithPanel="True"
+                        Margin="{x:Bind ViewModel.TitleBarMargin, Converter={StaticResource TopThicknessConverter}, Mode=OneWay}">
+                <AppBarButton Icon="ZoomIn" />
+                <AppBarButton Icon="Delete" />
+                <AppBarButton Command="{x:Bind ViewModel.InfoCommand}">
+                    <AppBarButton.Icon>
+                        <FontIcon Glyph="&#xE946;"/>
+                    </AppBarButton.Icon>
+                </AppBarButton>
+            </CommandBar>
             
-            <!--  Video element  -->
-            <Viewbox VerticalAlignment="Center"
-                     HorizontalAlignment="Center"
-                     StretchDirection="DownOnly"
-                     Visibility="{x:Bind ViewModel.IsVideo, Mode=OneWay}">
-                <controls:MediaPlayerHover x:Name="MediaPlayerElement"
-                                           FileName="{x:Bind ViewModel.VideoMediaData.Title, Mode=OneWay}"/>
-            </Viewbox>
+            <Grid Margin="32"
+                  RelativePanel.AlignVerticalCenterWithPanel="True"
+                  RelativePanel.AlignHorizontalCenterWithPanel="True">
 
-            <!--  Image/Gif element  -->
-            <Viewbox VerticalAlignment="Center"
-                     HorizontalAlignment="Center"
-                     StretchDirection="DownOnly"
-                     Visibility="{x:Bind ViewModel.IsImage, Mode=OneWay}">
-                <controls:FastImage x:Name="ImageElement"
-                                    FileName="{x:Bind ViewModel.ImageMediaData.Title, Mode=OneWay}"/>
-            </Viewbox>
+                <!--  Video element  -->
+                <Viewbox VerticalAlignment="Center"
+                         HorizontalAlignment="Center"
+                         StretchDirection="DownOnly"
+                         Visibility="{x:Bind ViewModel.IsVideo, Mode=OneWay}">
+                    <controls:MediaPlayerHover x:Name="MediaPlayerElement"
+                                               FileName="{x:Bind ViewModel.VideoMediaData.Title, Mode=OneWay}"/>
+                </Viewbox>
 
-        </Grid>
+                <!--  Image/Gif element  -->
+                <Viewbox VerticalAlignment="Center"
+                         HorizontalAlignment="Center"
+                         StretchDirection="DownOnly"
+                         Visibility="{x:Bind ViewModel.IsImage, Mode=OneWay}">
+                    <controls:FastImage x:Name="ImageElement"
+                                        FileName="{x:Bind ViewModel.ImageMediaData.Title, Mode=OneWay}"/>
+                </Viewbox>
 
-    </RelativePanel>
+            </Grid>
+
+        </RelativePanel>
+
+    </SplitView>
 
 </Page>

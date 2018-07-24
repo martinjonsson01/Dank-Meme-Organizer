@@ -60,18 +60,34 @@ namespace DMO.Views
 
             Debug.WriteLine($"{DateTime.Now.Second}:{DateTime.Now.Millisecond} Media file loaded.");
 
+            MediaData mediaData = null;
+            foreach(var data in App.MediaDatas)
+            {
+                if (data.Meta.MediaFilePath == mediaFile.Path)
+                    mediaData = data;
+            }
+
             if (mediaFile.FileType == ".gif")
             {
-                vm.ImageMediaData = new GifData(mediaFile);
+                if (mediaData != null)
+                    vm.ImageMediaData = mediaData;
+                else
+                    vm.ImageMediaData = new GifData(mediaFile);
             }
             else if (mediaFile.IsVideo())
             {
                 vm.IsVideo = true;
-                vm.VideoMediaData = new VideoData(mediaFile);
+                if (mediaData != null)
+                    vm.VideoMediaData = mediaData;
+                else
+                    vm.VideoMediaData = new VideoData(mediaFile);
             }
             else
             {
-                //vm.ImageMediaData = new ImageData(mediaFile);
+                if (mediaData != null)
+                    vm.ImageMediaData = mediaData;
+                else
+                    vm.ImageMediaData = new ImageData(mediaFile);
 
                 var image = ImageElement.FindName("Media") as Image;
                 var imageBitmap = new BitmapImage();

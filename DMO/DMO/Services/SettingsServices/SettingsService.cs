@@ -56,13 +56,13 @@ namespace DMO.Services.SettingsServices
         
         public string FolderPath
         {
-            get => _helper.Read(nameof(FolderPath), null as string);
+            get => _helper.Read(nameof(FolderPath), string.Empty);
             set => _helper.Write(nameof(FolderPath), value);
         }
 
         public string SortBy
         {
-            get => _helper.Read(nameof(SortBy), null as string);
+            get => _helper.Read(nameof(SortBy), string.Empty);
             set => _helper.Write(nameof(SortBy), value);
         }
 

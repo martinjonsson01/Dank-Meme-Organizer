@@ -1,12 +1,17 @@
-﻿using DMO.Extensions;
+﻿using DMO.Database;
+using DMO.Extensions;
+using DMO.GoogleAPI;
 using DMO.ML;
+using DMO.Services.SettingsServices;
 using DMO.Utility;
+using DMO_Model.Models;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Windows.Media.Core;
 using Windows.Storage;
@@ -21,7 +26,7 @@ namespace DMO.Models
     {
         #region Private Members
 
-        private MemeClassifierModel MemeClassifier;
+        private MemeClassifierModel _memeClassifier;
 
         #endregion
 
@@ -50,14 +55,49 @@ namespace DMO.Models
             App.Gallery = this;
         }
 
+        public Gallery()
+        {
+            RootFolderPath = SettingsService.Instance.FolderPath;
+            MediaDatas = new ObservableCollection<MediaData>();
+            App.Gallery = this;
+        }
+
         #endregion
 
         #region Public Methods
 
+        public async Task LoadMediaFiles(ICollection<MediaData> mediaDatas, int imageSize)
+        {
+            var sw = new Stopwatch();
+            sw.Start();
+            FilesFound = mediaDatas.Count;
+            foreach (var mediaData in mediaDatas)
+            {
+                if (mediaData is null) continue;
+                if (mediaData.Meta is null) continue;
+                if (string.IsNullOrEmpty(mediaData.Meta.MediaFilePath)) continue;
+
+                var mediaFile = await StorageFile.GetFileFromPathAsync(mediaData.Meta.MediaFilePath);
+
+                if (mediaFile is null) continue;
+
+                // Tell the mediaData which file belongs to it.
+                mediaData.MediaFile = mediaFile;
+
+                if (FileTypes.IsSupportedMIME(mediaFile.ContentType))
+                    await AddFile(imageSize, mediaFile, mediaData);
+            }
+            sw.Stop();
+            Debug.WriteLine($"File parsing completed! Elapsed time: {sw.ElapsedMilliseconds} ms {mediaDatas.Count} files parsed.");
+        }
+
         public async Task LoadFolderContents(int imageSize)
         {
+            if (!StorageApplicationPermissions.FutureAccessList.ContainsItem("gallery"))
+                return;
+
             var folder = await StorageApplicationPermissions.FutureAccessList.GetFolderAsync("gallery");
-            //var folder = await StorageFolder.GetFolderFromPathAsync(RootFolderPath);
+
             // TODO: Set up a tracker to keep track of when new files get added to the file system while application is running.
             if (folder != null)
             {
@@ -98,11 +138,24 @@ namespace DMO.Models
         /// </summary>
         /// <param name="imageSize">The size of the pregenerated thumbnail.</param>
         /// <param name="mediaFile">The file to add.</param>
+        /// <param name="mediaData">Optional, the data of the file to add.</param>
         /// <returns></returns>
-        public async Task AddFile(int imageSize, StorageFile mediaFile)
+        public async Task AddFile(int imageSize, StorageFile mediaFile, MediaData data = null)
         {
-            var data = CreateMediaData(mediaFile);
-            
+            if (data == null)
+                data = MediaData.CreateFromStorageFile(mediaFile);
+
+            if (data is GifData)
+                GifCount++;
+            if (data is VideoData)
+                VideoCount++;
+            if (data is ImageData)
+                ImageCount++;
+
+            var imageProp = await mediaFile.Properties.GetImagePropertiesAsync();
+            data.Meta.Height = (int)imageProp.Height;
+            data.Meta.Width = (int)imageProp.Width;
+            data.BasicProperties = await mediaFile.GetBasicPropertiesAsync();
             var properties = await mediaFile.Properties.RetrievePropertiesAsync
                 (
                     new String[] { "System.DateModified" }
@@ -110,7 +163,7 @@ namespace DMO.Models
             var lastModified = properties["System.DateModified"];
             if (lastModified is DateTime lastModifiedDateTime)
             {
-                data.LastModified = lastModifiedDateTime;
+                data.Meta.LastModified = lastModifiedDateTime;
             }
             MediaDatas.Add(data);
 
@@ -157,46 +210,56 @@ namespace DMO.Models
             }
         }
 
-        public MediaData CreateMediaData(StorageFile mediaFile)
+        public async Task EvaluateImagesOnline(IProgress<int> progress, CancellationToken cancellationToken)
         {
-            //
-            // Instantiate MediaData type depending on FileType.
-            //
-            if (mediaFile.FileType == ".gif")
+            // Sign into firebase.
+            if (await FirebaseClient.Client.SignInPromptUserIfNecessary())
             {
-                GifCount++;
-                return new GifData(mediaFile);
-            }
-            else if (mediaFile.IsVideo())
-            {
-                VideoCount++;
-                return new VideoData(mediaFile);
-            }
-            else
-            {
-                ImageCount++;
-                return new ImageData(mediaFile);
+                // Find all media datas without annotation data.
+                var mediaDatasWithoutAnnotationData = MediaDatas.Where(data => data.Meta.AnnotationData == null);
+
+                var sw = new Stopwatch();
+                sw.Start();
+                IsEvaluating = true;
+                var evaluated = 0;
+                await TaskUtils.ForEachAsyncConcurrent(mediaDatasWithoutAnnotationData, async media =>
+                {
+                    // Evaluate media thumbnail online.
+                    await media.EvaluateOnlineAsync(FirebaseClient.accessToken);
+                    // Update and then report progress.
+                    evaluated++;
+                    progress.Report(evaluated);
+                }, cancellationToken, 5);
+                IsEvaluating = false;
+                sw.Stop();
+                Debug.WriteLine($"Gallery Cloud Vision Evaluation completed! Elapsed time: {sw.ElapsedMilliseconds} ms {evaluated} files evaluated." +
+                    $" Average time per file {sw.ElapsedMilliseconds / (float)evaluated} ms");
+
+                // Save online results to database.
+                using (var context = new MediaMetaDatabaseContext())
+                {
+                    await context.SaveAllMetadatasAsync(MediaDatas);
+                }
             }
         }
 
-        public async Task EvaluateImages(IProgress<int> progress)
+        public async Task EvaluateImagesLocally(IProgress<int> progress, CancellationToken cancellationToken)
         {
             var sw = new Stopwatch();
             sw.Start();
             IsEvaluating = true;
-            // Load ML model into memory if not already.
-            if (MemeClassifier == null)
-            {
-                var modelFile = await StorageFile.GetFileFromApplicationUriAsync(new Uri($"ms-appx:///Assets/MemeClassifier.onnx"));
-                MemeClassifier = await MemeClassifierModel.CreateModel(modelFile);
-            }
+            
+            await LoadLocalModel();
 
             var evaluated = 0;
             foreach (var data in MediaDatas)
             {
+                // Throw if cancellation is requested.
+                cancellationToken.ThrowIfCancellationRequested();
+
                 // Evaluate media using classifier if it has no tags already.
-                if (data.Labels == null || data.Labels.Count < 1)
-                    await data.EvaluateLocalAsync(MemeClassifier);
+                if (data.Meta?.Labels == null || data.Meta?.Labels.Count < 1)
+                    await data.EvaluateLocalAsync(_memeClassifier);
                 // Update and then report progress.
                 evaluated++;
                 progress.Report(evaluated);
@@ -204,7 +267,19 @@ namespace DMO.Models
             IsEvaluating = false;
             sw.Stop();
             Debug.WriteLine($"Gallery Machine Learning Evaluation completed! Elapsed time: {sw.ElapsedMilliseconds} ms {evaluated} files evaluated." +
-                $" Average time per file {sw.ElapsedMilliseconds/(float)evaluated} ms");
+                $" Average time per file {sw.ElapsedMilliseconds / (float)evaluated} ms");
+
+            // Don't save local results to database since they will be saved together with the online results shortly.
+        }
+
+        public async Task LoadLocalModel()
+        {
+            // Load ML model into memory if not already.
+            if (_memeClassifier == null)
+            {
+                var modelFile = await StorageFile.GetFileFromApplicationUriAsync(new Uri($"ms-appx:///Assets/MemeClassifier.onnx"));
+                _memeClassifier = await MemeClassifierModel.CreateModel(modelFile);
+            }
         }
 
         #endregion

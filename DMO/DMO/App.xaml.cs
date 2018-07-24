@@ -25,6 +25,9 @@ using Newtonsoft.Json;
 using System.IO;
 using Windows.Security.Authentication.Web;
 using System.Net.Http;
+using DMO.GoogleAPI;
+using DMO_Model.Models;
+using DMO_Model.GoogleAPI.Models;
 
 namespace DMO
 {
@@ -40,6 +43,11 @@ namespace DMO
         public static Gallery Gallery;
 
         public static string VisionAPIKey = "AIzaSyBp1PKmeQWeMQ2DyKCv1dfBUO1aFgReico";
+
+        /// <summary>
+        /// These are the MediaDatas loaded from the database. Need to be processed before used.
+        /// </summary>
+        public static  List<MediaData> MediaDatas = new List<MediaData>();
 
         public App()
         {
@@ -64,35 +72,22 @@ namespace DMO
             ClearFutureAccessList();
         }
 
-        private async Task SetUpDatabase()
+        private async Task SetUpAndLoadFromDatabase()
         {
-            using (var context = new MediaDataDatabaseContext())
+            using (var context = new MediaMetaDatabaseContext())
             {
                 // TODO: WARNING REMOVE THIS. IT CLEARS AND RESETS THE ENTIRE DATABASE.
-                await context.Database.EnsureDeletedAsync();
+                //await context.Database.EnsureDeletedAsync();
 
-                //await context.Database.MigrateAsync(); This database migration stuff is awesome but I can't use it because it requires a messed up EFCore tool not available for UWP.
-                // Creates the database if it does not exist.
-                await context.Database.EnsureCreatedAsync();
+                // Creates and/or migrates the database if it does not exist/is not up to date.
+                await context.Database.MigrateAsync();
 
-                // Create a dummy data and add it to database.
-                var data = new ImageData(null)
+                var metas = await context.GetAllMetadatasAsync();
+                foreach (var meta in metas)
                 {
-                    LastModified = DateTime.Now,
-                    Labels = new List<Label>
-                    {
-                        new Label { Name = "Name1", Probability = 0.1f },
-                        new Label { Name = "Name2", Probability = 65.5f },
-                        new Label { Name = "Name3", Probability = 21.7f }
-                    },
-                    Title = "Title of image",
-                };
-                if (!await context.MediaDatas.ContainsAsync(data))
-                    context.MediaDatas.Add(data);
-                await context.SaveChangesAsync();
-
-                foreach (var mediaData in context.MediaDatas)
-                    Debug.WriteLine(mediaData.Title);
+                    var mediaData = await MediaData.CreateFromMediaMetadataAsync(meta);
+                    MediaDatas.Add(mediaData);
+                }
             }
         }
 
@@ -102,32 +97,47 @@ namespace DMO
             {
                 if (args.Kind == ActivationKind.Protocol)
                 {
-                    // Extracts the authorization response URI from the arguments.
-                    var protocolArgs = (ProtocolActivatedEventArgs)args;
-                    var uri = protocolArgs.Uri;
-                    Debug.WriteLine("Authorization Response: " + uri.AbsoluteUri);
-
-                    // Opens the URI for "navigation" (handling) on the MainPage. TODO: Open Auth completed page here.
+                    // Opens the URI for "navigation" (handling) on the GalleryPage. TODO: Open Auth completed page here.
                     await NavigationService.NavigateAsync(typeof(Views.GalleryPage), SettingsService.Instance.FolderPath);
                     Window.Current.Activate();
                 }
             }
             if (startKind == StartKind.Launch)
             {
+                // Enable prelaunch.
+                TryEnablePrelaunch();
+
                 // Set up database.
                 Debug.WriteLine("Setting up database...");
                 var sw = new Stopwatch();
                 sw.Start();
-                await SetUpDatabase();
+                await SetUpAndLoadFromDatabase();
                 sw.Stop();
                 Debug.WriteLine($"Database setup! Elapsed time: {sw.ElapsedMilliseconds} ms");
+
+                // If MediaDatas have been loaded from database then open GalleryPage using those.
+                if (MediaDatas.Count > 0)
+                {
+                    await NavigationService.NavigateAsync(typeof(Views.GalleryPage), nameof(MediaDatas));
+                    return;
+                }
 
                 // If no folder path has been set, have the user select one.
                 if (string.IsNullOrEmpty(SettingsService.Instance.FolderPath))
                     await NavigationService.NavigateAsync(typeof(Views.FolderSelectPage));
                 else
-                    await NavigationService.NavigateAsync(typeof(Views.GalleryPage), SettingsService.Instance.FolderPath);
+                    await NavigationService.NavigateAsync(typeof(Views.GalleryPage));
             }
+        }
+
+        private static void TryEnablePrelaunch()
+        {
+            CoreApplication.EnablePrelaunch(true);
+        }
+
+        public override Task OnSuspendingAsync(object s, SuspendingEventArgs e, bool prelaunchActivated)
+        {
+            return base.OnSuspendingAsync(s, e, prelaunchActivated);
         }
 
         protected override INavigationService CreateNavigationService(Frame frame)
