@@ -248,7 +248,7 @@ namespace DMO.ViewModels
                     // Greate gallery from mediaDatas.
                     Gallery = new Gallery();
                     // Load Gallery.
-                    await LoadGalleryFromMediaDatasAsync(App.MediaDatas);
+                    await LoadGalleryFromFolderAsync(App.MediaDatas);
                 }
                 else // Default behaviour.
                 {
@@ -278,12 +278,20 @@ namespace DMO.ViewModels
                     Debug.WriteLine($"EvaluateImagesLocally: {e.Message}");
 
                     // Save local results to database.
-                    using (var context = new MediaMetaDatabaseContext())
-                    {
-                        await context.SaveAllMetadatasAsync(Gallery.MediaDatas);
-                    }
+                    await DatabaseUtils.SaveAllMetadatasAsync(Gallery.MediaDatas);
                 }
-                
+
+                // Scan for duplicates.
+                var duplicateSets = Gallery.ScanForDuplicates();
+                // For each set of duplicates...
+                foreach (var duplicates in duplicateSets.Values)
+                {
+                    // ...have the user handle the duplicates.
+                    DuplicateModal.DuplicateQueue.Enqueue(duplicates);
+                }
+                // Process duplicates one after another.
+                await DuplicateModal.ProcessQueueAsync();
+
                 // Create new progress object to report back evaluation progress.
                 progress = new Progress<int>();
                 progress.ProgressChanged += (sender, evaluated) => { EvaluationProgress = ((float)evaluated / Math.Max(Gallery.MediaDatas.Count, 0)) * 100; };
@@ -298,10 +306,7 @@ namespace DMO.ViewModels
                     Debug.WriteLine($"EvaluateImagesOnline: {e.Message}");
 
                     // Save online results to database.
-                    using (var context = new MediaMetaDatabaseContext())
-                    {
-                        await context.SaveAllMetadatasAsync(Gallery.MediaDatas);
-                    }
+                    await DatabaseUtils.SaveAllMetadatasAsync(Gallery.MediaDatas);
                 }
                 finally
                 {
@@ -327,11 +332,8 @@ namespace DMO.ViewModels
                 // Cancel all current media evaluation processes.
                 _evaluationCancellationTokenSource.Cancel();
 
-                using (var context = new MediaMetaDatabaseContext())
-                {
-                    // Save all metadatas asynchronously before suspending.
-                    await context.SaveAllMetadatasAsync(Gallery.MediaDatas);
-                }
+                // Save all metadatas asynchronously before suspending.
+                await DatabaseUtils.SaveAllMetadatasAsync(Gallery.MediaDatas);
             }
         }
 
@@ -357,7 +359,7 @@ namespace DMO.ViewModels
             return new SortDescription(sortProperty, DirectionSort);
         }
 
-        private async Task LoadGalleryFromFolderAsync()
+        private async Task LoadGalleryFromFolderAsync(ICollection<MediaData> mediaDatas = null)
         {
             SearchResults = new AdvancedCollectionView(Gallery.MediaDatas, true);
             // Apply sort description.
@@ -366,22 +368,7 @@ namespace DMO.ViewModels
             using (SearchResults.DeferRefresh()) // Defer list updating until all items have been added.
             {
                 // Load folder contents.
-                await Gallery.LoadFolderContents(TileSize);
-            }
-            // Update static list.
-            App.MediaDatas = Gallery.MediaDatas.ToList();
-        }
-
-        private async Task LoadGalleryFromMediaDatasAsync(ICollection<MediaData> mediaDatas)
-        {
-            SearchResults = new AdvancedCollectionView(Gallery.MediaDatas, true);
-            // Apply sort description.
-            SearchResults.SortDescriptions.Add(GetSortDescription(SettingsService.Instance.SortBy));
-            // Scan all media in gallery.
-            using (SearchResults.DeferRefresh()) // Defer list updating until all items have been added.
-            {
-                // Load media files.
-                await Gallery.LoadMediaFiles(mediaDatas, TileSize);
+                await Gallery.LoadFolderContents(TileSize, mediaDatas);
             }
             // Update static list.
             App.MediaDatas = Gallery.MediaDatas.ToList();

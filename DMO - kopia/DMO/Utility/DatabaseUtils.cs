@@ -13,16 +13,38 @@ namespace DMO.Utility
 {
     public static class DatabaseUtils
     {
-        public static async Task SaveAllMetadatasAsync(this MediaMetaDatabaseContext context, ICollection<MediaData> mediaDatas)
+        public static async Task SaveAllMetadatasAsync(ICollection<MediaData> mediaDatas)
         {
-            var metaDatas = new List<MediaMetadata>();
-            foreach (var data in mediaDatas)
-                metaDatas.Add(data.Meta);
+            using (var context = new MediaMetaDatabaseContext())
+            {
+                var metaDatas = new List<MediaMetadata>();
+                foreach (var data in mediaDatas)
+                    metaDatas.Add(data.Meta);
 
-            await context.SaveAllMetadatasAsync(metaDatas);
+                await context.SaveAllMetadatasAsync(metaDatas);
 
-            // Update static list.
-            App.MediaDatas = new List<MediaData>(mediaDatas);
+                // Update static list.
+                App.MediaDatas = new List<MediaData>(mediaDatas);
+            }
+        }
+
+        public static async Task UpdateMediaMetaDataAsync(this MediaMetaDatabaseContext context, MediaMetadata metaToSave)
+        {
+            var sw = new Stopwatch();
+            sw.Start();
+
+            // Find MediaMetaJson in database list.
+            var metaJson = context.MediaMetaJsons.Include(m => m.Labels).SingleOrDefault(mj => mj.Labels.ListEquals(metaToSave.Labels));
+
+            if (metaJson != null)
+            {
+                var newMetaJson = new MediaMetaJson(metaToSave);
+                metaJson.Json = newMetaJson.Json;
+
+                await context.SaveChangesAsync();
+            }
+            sw.Stop();
+            Debug.WriteLine($"Single MediaMetadata updated! Elapsed time: {sw.ElapsedMilliseconds} ms Saved 1 object");
         }
 
         public static async Task SaveAllMetadatasAsync(this MediaMetaDatabaseContext context, ICollection<MediaMetadata> metas)
@@ -32,23 +54,23 @@ namespace DMO.Utility
             var fullList = await context.MediaMetaJsons.Include(m => m.Labels).ToListAsync();
             foreach (var meta in metas)
             {
-                // If any MediaMetaJson has a set of labels that are equal to the ones of meta, then remove it so it can be updated.
-                var toRemove = fullList.FirstOrDefault(mmj => 
+                // If any MediaMetaJson has a set of labels that are equal to the ones of meta, then update it.
+                var toUpdate = fullList.FirstOrDefault(mmj => 
                 {
-                    return mmj.Labels.ListEquals(meta.Labels.ToList());
+                    return mmj.Labels.ListEquals(meta.Labels);
                 });
 
 
                 // If there is an existing item to update.
-                if (toRemove != null)
+                if (toUpdate != null)
                 {
-                    var metaJson = new MediaMetaJson(meta);
-                    toRemove.Json = metaJson.Json;
+                    var metaJson = await MediaMetaJson.FromMediaMetaAsync(meta);
+                    toUpdate.Json = metaJson.Json;
                 }
                 else // If a new item needs to be added.
                 {
                     meta.DateAdded = DateTime.Now;
-                    var metaJson = new MediaMetaJson(meta);
+                    var metaJson = await MediaMetaJson.FromMediaMetaAsync(meta);
                     context.MediaMetaJsons.Add(metaJson);
                 }
             }

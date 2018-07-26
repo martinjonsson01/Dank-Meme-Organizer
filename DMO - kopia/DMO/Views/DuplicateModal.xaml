@@ -1,0 +1,106 @@
+﻿<UserControl x:Class="DMO.Views.DuplicateModal"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:Behaviors="using:Template10.Behaviors"
+             xmlns:Core="using:Microsoft.Xaml.Interactions.Core"
+             xmlns:Interactivity="using:Microsoft.Xaml.Interactivity"
+             xmlns:controls="using:DMO.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:local="using:DMO.Views"
+             xmlns:converters="using:DMO.Converters"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:googleModels="using:DMO_Model.GoogleAPI.Models"
+             Background="{ThemeResource SystemControlAcrylicElementBrush}"
+             xmlns:vm="using:DMO.ViewModels"
+             xmlns:models="using:DMO.Models" mc:Ignorable="d"
+             Margin="40">
+
+    <UserControl.Resources>
+        <converters:TopThicknessConverter x:Key="TopThicknessConverter"/>
+        <converters:StringEllipsisShortener x:Key="StringEllipsisShortener"/>
+    </UserControl.Resources>
+
+    <UserControl.DataContext>
+        <vm:DuplicatePageViewModel x:Name="ViewModel" />
+    </UserControl.DataContext>
+
+    <StackPanel Padding="20"
+                Background="{ThemeResource SystemControlAcrylicElementBrush}">
+
+        <!-- Allows duplicates to be placed next to each other stacked horizontally. -->
+        <ScrollViewer>
+
+            <ListView ScrollViewer.HorizontalScrollMode="Enabled"
+                      ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                      ScrollViewer.IsHorizontalRailEnabled="True"
+                      HorizontalAlignment="Center"
+                      ItemsSource="{x:Bind ViewModel.DuplicateMediaEntries, Mode=OneWay}"
+                      ItemClick="{x:Bind ViewModel.DuplicateSelected}"
+                      IsItemClickEnabled="True">
+                <ListView.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <VirtualizingStackPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </ListView.ItemsPanel>
+                <ListView.ItemTemplate>
+                    <DataTemplate x:DataType="models:DuplicateMediaEntry">
+                        
+                        <!-- Allows scrolling of really long images. -->
+                        <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                      MaxHeight="700">
+                            <StackPanel Padding="20">
+                                <controls:GenericMediaDataElement Margin="32"
+                                                              MaxWidth="400"
+                                                              MediaData="{x:Bind MediaData, Mode=TwoWay}"/>
+
+                                <StackPanel Margin="20, 0, 20, 0">
+                                    <TextBlock Text="Filename" 
+                                           Foreground="{StaticResource InfoHeaderTextColorBrush}"/>
+                                    <TextBlock Text="{x:Bind MediaData.Title, Mode=OneWay}"/>
+                                </StackPanel>
+
+                                <StackPanel Margin="20, 0, 20, 0">
+                                    <TextBlock Text="Path" 
+                                           Foreground="{StaticResource InfoHeaderTextColorBrush}"/>
+                                    <TextBlock Text="{x:Bind MediaData.Meta.MediaFilePath, Mode=OneWay}"
+                                           IsTextSelectionEnabled="True"
+                                           TextWrapping="WrapWholeWords"/>
+                                </StackPanel>
+
+                                <StackPanel Margin="20, 0, 20, 0">
+                                    <TextBlock Text="Added" 
+                                           Foreground="{StaticResource InfoHeaderTextColorBrush}"/>
+                                    <TextBlock Text="{x:Bind Added, Mode=OneWay}"
+                                           IsTextSelectionEnabled="True"/>
+                                </StackPanel>
+
+                                <StackPanel Margin="20, 0, 20, 0">
+                                    <TextBlock Text="Size" 
+                                           Foreground="{StaticResource InfoHeaderTextColorBrush}"/>
+                                    <TextBlock Text="{x:Bind Size, Mode=OneWay}"
+                                           IsTextSelectionEnabled="True"/>
+                                </StackPanel>
+
+                                <StackPanel Margin="20, 0, 20, 0">
+                                    <TextBlock Text="Dimensions" 
+                                           Foreground="{StaticResource InfoHeaderTextColorBrush}"/>
+                                    <TextBlock Text="{x:Bind Dimensions, Mode=OneWay}"
+                                           IsTextSelectionEnabled="True"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </ScrollViewer>
+                        
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+
+        </ScrollViewer>
+
+        <Button Content="Keep all"
+                HorizontalAlignment="Center"
+                Margin="50"
+                Command="{x:Bind ViewModel.KeepAllDuplicatesCommand}" />
+
+    </StackPanel>
+    
+</UserControl>

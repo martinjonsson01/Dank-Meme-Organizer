@@ -8,6 +8,7 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices.WindowsRuntime;
+using System.Threading.Tasks;
 using Template10.Services.SerializationService;
 using Windows.Foundation;
 using Windows.Foundation.Collections;
@@ -60,47 +61,10 @@ namespace DMO.Views
 
             Debug.WriteLine($"{DateTime.Now.Second}:{DateTime.Now.Millisecond} Media file loaded.");
 
-            MediaData mediaData = null;
-            foreach(var data in App.MediaDatas)
-            {
-                if (data.Meta.MediaFilePath == mediaFile.Path)
-                    mediaData = data;
-            }
+            MediaData mediaData = App.Gallery.GetMediaDataFromPath(mediaFile.Path, App.Gallery.MediaDatas);
 
-            if (mediaFile.FileType == ".gif")
-            {
-                if (mediaData != null)
-                    vm.ImageMediaData = mediaData;
-                else
-                    vm.ImageMediaData = new GifData(mediaFile);
-            }
-            else if (mediaFile.IsVideo())
-            {
-                vm.IsVideo = true;
-                if (mediaData != null)
-                    vm.VideoMediaData = mediaData;
-                else
-                    vm.VideoMediaData = new VideoData(mediaFile);
-            }
-            else
-            {
-                if (mediaData != null)
-                    vm.ImageMediaData = mediaData;
-                else
-                    vm.ImageMediaData = new ImageData(mediaFile);
-
-                var image = ImageElement.FindName("Media") as Image;
-                var imageBitmap = new BitmapImage();
-                image.Source = imageBitmap;
-                var sw = new Stopwatch();
-                sw.Start();
-                // Open stream to file and apply as bitmap source.
-                await imageBitmap.SetSourceAsync(await mediaFile.OpenReadAsync());
-                sw.Stop();
-                Debug.WriteLine($"Bitmap loaded. Took {sw.ElapsedMilliseconds} ms");
-            }
-            Debug.WriteLine($"{DateTime.Now.Second}:{DateTime.Now.Millisecond} Media data loaded.");
-
+            vm.MediaData = mediaData;
+            
             #endregion
 
             Frame.Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 0, 0, 0));
@@ -117,34 +81,48 @@ namespace DMO.Views
              fadeAnimation.Target = "Opacity";
 
              ElementCompositionPreview.SetImplicitShowAnimation(BackgroundPanel, fadeAnimation);*/
-
+            await Task.Delay(100);
             if (imageAnimation != null)
             {
                 _image = true;
                 imageAnimation.Completed += (sender, arg) => _animFinished = true;
-                ImageElement.ImageLoadedAction = () =>
+                GenericMediaDataElement.ImageElement.ImageLoadedAction = () =>
                 {
                     Debug.WriteLine($"{DateTime.Now.Second}:{DateTime.Now.Millisecond} Detailed image loaded.");
-                    imageAnimation.TryStart(ImageElement);
+                    imageAnimation.TryStart(GenericMediaDataElement.ImageElement);
                 };
             }
             if (gifAnimation != null)
             {
                 _gif = true;
                 gifAnimation.Completed += (sender, arg) => _animFinished = true;
-                ImageElement.ImageLoadedAction = () =>
+                GenericMediaDataElement.ImageElement.ImageLoadedAction = () =>
                 {
-                    gifAnimation.TryStart(ImageElement);
+                    gifAnimation.TryStart(GenericMediaDataElement.ImageElement);
                 };
             }
             if (videoAnimation != null)
             {
                 _video = true;
                 videoAnimation.Completed += (sender, arg) => _animFinished = true;
-                MediaPlayerElement.VideoLoadedAction += async () =>
-                    await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.High, () => videoAnimation.TryStart(MediaPlayerElement));
-                MediaPlayerElement.Detailed = true;
+                GenericMediaDataElement.VideoElement.VideoLoadedAction += async () =>
+                    await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.High, () => videoAnimation.TryStart(GenericMediaDataElement.VideoElement));
+                GenericMediaDataElement.VideoElement.Detailed = true;
             }
+
+            // Pick up on property changes inside of GenericMediaDataElement.
+            GenericMediaDataElement.PropertyChanged += (sender, args) =>
+            {
+                if (args.PropertyName == nameof(GenericMediaDataElement.ImageMediaData.Meta))
+                {
+                    // Update width and height of local media datas based on new values of ImageMediaData.Meta.
+                    mediaData.Meta.Height = GenericMediaDataElement.ImageMediaData.Meta.Height;
+                    mediaData.Meta.Width = GenericMediaDataElement.ImageMediaData.Meta.Width;
+                    vm.MediaData.Meta.Height = GenericMediaDataElement.ImageMediaData.Meta.Height;
+                    vm.MediaData.Meta.Width = GenericMediaDataElement.ImageMediaData.Meta.Width;
+                    vm.RaisePropertyChanged(nameof(vm.Dimensions));
+                }
+            };
 
             // Allow back-navigation if all animations are null.
             if (imageAnimation == null && gifAnimation == null && videoAnimation == null)
@@ -162,13 +140,13 @@ namespace DMO.Views
             }*/
 
             if (_image)
-                ConnectedAnimationService.GetForCurrentView().PrepareToAnimate("detailsImage2", ImageElement);
+                ConnectedAnimationService.GetForCurrentView().PrepareToAnimate("detailsImage2", GenericMediaDataElement.ImageElement);
             if (_gif)
-                ConnectedAnimationService.GetForCurrentView().PrepareToAnimate("detailsGif2", ImageElement);
+                ConnectedAnimationService.GetForCurrentView().PrepareToAnimate("detailsGif2", GenericMediaDataElement.ImageElement);
             if (_video)
             {
-                MediaPlayerElement.Detailed = false;
-                ConnectedAnimationService.GetForCurrentView().PrepareToAnimate("detailsVideo2", MediaPlayerElement);
+                GenericMediaDataElement.VideoElement.Detailed = false;
+                ConnectedAnimationService.GetForCurrentView().PrepareToAnimate("detailsVideo2", GenericMediaDataElement.VideoElement);
             }
         }
     }

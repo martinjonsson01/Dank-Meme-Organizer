@@ -17,7 +17,14 @@
     <FileAlignment>512</FileAlignment>
     <ProjectTypeGuids>{A5A43C5B-DE2A-4C0C-9213-0A381AF9435A};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
     <WindowsXamlEnableOverview>true</WindowsXamlEnableOverview>
-    <PackageCertificateKeyFile>DMO_TemporaryKey.pfx</PackageCertificateKeyFile>
+    <PackageCertificateKeyFile>DMO_StoreKey.pfx</PackageCertificateKeyFile>
+    <PackageCertificateThumbprint>86FF6A6713D0C383B0DBFC89D3BA7BBE356BC5A2</PackageCertificateThumbprint>
+    <GenerateAppInstallerFile>False</GenerateAppInstallerFile>
+    <AppxAutoIncrementPackageRevision>True</AppxAutoIncrementPackageRevision>
+    <AppxBundle>Always</AppxBundle>
+    <AppxBundlePlatforms>x86|x64</AppxBundlePlatforms>
+    <AppInstallerUpdateFrequency>1</AppInstallerUpdateFrequency>
+    <AppInstallerCheckForUpdateFrequency>OnApplicationRun</AppInstallerCheckForUpdateFrequency>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x86'">
     <DebugSymbols>true</DebugSymbols>
@@ -101,8 +108,14 @@
     <Compile Include="Controls\FastImage.xaml.cs">
       <DependentUpon>FastImage.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Controls\DetailedFileNameTextBox.xaml.cs">
+      <DependentUpon>DetailedFileNameTextBox.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Controls\FileNameTextBox.xaml.cs">
       <DependentUpon>FileNameTextBox.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Controls\GenericMediaDataElement.xaml.cs">
+      <DependentUpon>GenericMediaDataElement.xaml</DependentUpon>
     </Compile>
     <Compile Include="Controls\HoverGif.cs" />
     <Compile Include="Controls\MediaPlayerHover.xaml.cs">
@@ -110,6 +123,7 @@
     </Compile>
     <Compile Include="Converters\BooleanInverseConverter.cs" />
     <Compile Include="Converters\SortDirectionIconConverter.cs" />
+    <Compile Include="Converters\StringEllipsisShortener.cs" />
     <Compile Include="Converters\TimeSpanDurationConverter.cs" />
     <Compile Include="Converters\TopThicknessConverter.cs" />
     <Compile Include="Extensions\NumberExtensions.cs" />
@@ -120,6 +134,7 @@
     <Compile Include="GoogleAPI\Settings.cs" />
     <Compile Include="ML\MemeClassifier.cs" />
     <Compile Include="Models\BaseModel.cs" />
+    <Compile Include="Models\DuplicateMediaEntry.cs" />
     <Compile Include="Models\Gallery.cs" />
     <Compile Include="Models\GalleryFolderChooser.cs" />
     <Compile Include="Models\GifData.cs" />
@@ -133,9 +148,12 @@
     <Compile Include="Utility\DatabaseUtils.cs" />
     <Compile Include="Utility\Extensions.cs" />
     <Compile Include="Utility\FileTypes.cs" />
+    <Compile Include="Utility\ImageUtilities.cs" />
+    <Compile Include="Utility\StringUtils.cs" />
     <Compile Include="Utility\TaskUtils.cs" />
     <Compile Include="Utility\WebUtils.cs" />
     <Compile Include="ViewModels\DetailsPageViewModel.cs" />
+    <Compile Include="ViewModels\DuplicatePageViewModel.cs" />
     <Compile Include="ViewModels\Examples\DetailPageViewModel.cs" />
     <Compile Include="ViewModels\Examples\MainPageViewModel.cs" />
     <Compile Include="ViewModels\Examples\SettingsPageViewModel.cs" />
@@ -149,6 +167,7 @@
     <Compile Include="Views\DetailsPage.xaml.cs">
       <DependentUpon>DetailsPage.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Views\DuplicateModal.xaml.cs" />
     <Compile Include="Views\Examples\AuthModal.xaml.cs">
       <DependentUpon>AuthModal.xaml</DependentUpon>
     </Compile>
@@ -170,12 +189,16 @@
     <Compile Include="Views\SettingsPage.xaml.cs">
       <DependentUpon>SettingsPage.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Views\Templates.xaml.cs">
+      <DependentUpon>Templates.xaml</DependentUpon>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <AppxManifest Include="Package.appxmanifest">
       <SubType>Designer</SubType>
     </AppxManifest>
     <Content Include="Assets\MemeClassifier.onnx" />
+    <None Include="DMO_StoreKey.pfx" />
     <None Include="DMO_TemporaryKey.pfx" />
   </ItemGroup>
   <ItemGroup>
@@ -317,9 +340,17 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
+    <Page Include="Controls\DetailedFileNameTextBox.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
     <Page Include="Controls\FileNameTextBox.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Controls\GenericMediaDataElement.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Controls\HoverGif.xaml">
       <Generator>MSBuild:Compile</Generator>
@@ -357,6 +388,10 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
+    <Page Include="Views\DuplicateModal.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
     <Page Include="Views\DetailsPage.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
@@ -388,6 +423,10 @@
     <Page Include="Views\SettingsPage.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Views\Templates.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
     </Page>
   </ItemGroup>
   <ItemGroup>

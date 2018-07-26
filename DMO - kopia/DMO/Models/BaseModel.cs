@@ -20,7 +20,7 @@ namespace DMO.Models
         /// Call this to fire a <see cref="PropertyChanged"/> event.
         /// </summary>
         /// <param name="name"></param>
-        public void OnPropertyChanged(string name)
+        public void RaisePropertyChanged(string name)
         {
             PropertyChanged(this, new PropertyChangedEventArgs(name));
         }

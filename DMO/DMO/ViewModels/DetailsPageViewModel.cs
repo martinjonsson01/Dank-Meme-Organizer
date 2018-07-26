@@ -1,5 +1,6 @@
 ﻿using DMO.Extensions;
 using DMO.Models;
+using DMO.Utility;
 using DMO_Model.GoogleAPI.Models;
 using System;
 using System.Collections.Generic;
@@ -22,30 +23,6 @@ namespace DMO.ViewModels
         #region Public Properties
 
         public string MediaDataKey { get; set; }
-
-        public bool IsVideo { get; set; }
-
-        public bool IsImage => !IsVideo;
-
-        public MediaData VideoMediaData
-        {
-            get => _videoMediaData;
-            set
-            {
-                _videoMediaData = value;
-                MediaData = value;
-            }
-        }
-
-        public MediaData ImageMediaData
-        {
-            get => _imageMediaData;
-            set
-            {
-                _imageMediaData = value;
-                MediaData = value;
-            }
-        }
 
         public MediaData MediaData { get; set; }
 
@@ -91,7 +68,7 @@ namespace DMO.ViewModels
             get
             {
                 if (MediaData != null && MediaData.BasicProperties != null)
-                    return BytesToString((long)MediaData.BasicProperties.Size);
+                    return ((long)MediaData.BasicProperties.Size).BytesToString();
                 return "--";
             }
         }
@@ -121,11 +98,61 @@ namespace DMO.ViewModels
             get
             {
                 var entities = new List<WebEntity>();
-                if (MediaData != null && MediaData.Meta != null && MediaData.Meta.AnnotationData != null)
+                if (MediaData != null && MediaData.Meta != null && MediaData.Meta.AnnotationData != null && MediaData.Meta.AnnotationData.WebDetection != null)
                 {
-                    entities = MediaData.Meta.AnnotationData.WebDetection.WebEntities;
+                    foreach(var entity in MediaData.Meta.AnnotationData.WebDetection.WebEntities)
+                    {
+                        // Ignore all entities with no descriptions.
+                        if (string.IsNullOrEmpty(entity.Description)) continue;
+
+                        entities.Add(entity);
+                    }
                 }
                 return entities;
+            }
+        }
+
+        public bool FullyMatchedImagesContainsItems => FullyMatchedImages.Count > 0;
+
+        public List<WebImage> FullyMatchedImages
+        {
+            get
+            {
+                var images = new List<WebImage>();
+                if (MediaData != null && MediaData.Meta != null && MediaData.Meta.AnnotationData != null && MediaData.Meta.AnnotationData.WebDetection != null)
+                {
+                    foreach(var image in MediaData.Meta.AnnotationData.WebDetection.FullMatchingImages)
+                    {
+                        if (Uri.TryCreate(image.Url, UriKind.Absolute, out var uriResult)
+                            && (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps))
+                        {
+                            images.Add(image);
+                        }
+                    }
+                }
+                return images;
+            }
+        }
+
+        public bool PartiallyMatchedImagesContainsItems => PartiallyMatchedImages.Count > 0;
+
+        public List<WebImage> PartiallyMatchedImages
+        {
+            get
+            {
+                var images = new List<WebImage>();
+                if (MediaData != null && MediaData.Meta != null && MediaData.Meta.AnnotationData != null && MediaData.Meta.AnnotationData.WebDetection != null)
+                {
+                    foreach (var image in MediaData.Meta.AnnotationData.WebDetection.PartialMatchingImages)
+                    {
+                        if (Uri.TryCreate(image.Url, UriKind.Absolute, out var uriResult)
+                            && (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps))
+                        {
+                            images.Add(image);
+                        }
+                    }
+                }
+                return images;
             }
         }
 
@@ -134,9 +161,6 @@ namespace DMO.ViewModels
         #region Commands
 
         private DelegateCommand _infoCommand;
-        private MediaData _videoMediaData;
-        private MediaData _imageMediaData;
-
         public DelegateCommand InfoCommand
             => _infoCommand ?? (_infoCommand = new DelegateCommand(() =>
             {
@@ -181,19 +205,7 @@ namespace DMO.ViewModels
         #endregion
 
         #region Private Methods
-
-        private static string BytesToString(long byteCount)
-        {
-            string[] suf = { "B", "kB", "MB", "GB", "TB", "PB", "EB" }; //Longs run out around EB
-            if (byteCount == 0)
-                return $"0 {suf[0]}";
-            long bytes = Math.Abs(byteCount);
-            int place = Convert.ToInt32(Math.Floor(Math.Log(bytes, 1024)));
-            double num = Math.Round(bytes / Math.Pow(1024, place), 1);
-            //var byteCountSign = Math.Sign(byteCount);
-            return $"{(/*byteCountSign * */num).ToString(CultureInfo.InstalledUICulture)} {suf[place]}";
-        }
-
+        
         #endregion
     }
 }

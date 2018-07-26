@@ -15,6 +15,7 @@
                 <ResourceDictionary Source="Styles/Custom.xaml" />
                 <ResourceDictionary Source="Styles/Titlebar.xaml" />
                 <ResourceDictionary Source="Styles/SearchBox.xaml" />
+                <ResourceDictionary Source="Views/Templates.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
             <Style TargetType="controls:CustomTitleBar">

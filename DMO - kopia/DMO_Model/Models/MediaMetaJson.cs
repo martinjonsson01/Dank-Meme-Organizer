@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace DMO_Model.Models
 {
@@ -30,6 +31,16 @@ namespace DMO_Model.Models
         {
             Labels = new List<Label>(mediaMetadata.Labels);
             Json = JsonConvert.SerializeObject(mediaMetadata);
+        }
+
+        public static async Task<MediaMetaJson> FromMediaMetaAsync(MediaMetadata meta)
+        {
+            var mediaMetaJson = new MediaMetaJson
+            {
+                Labels = new List<Label>(meta.Labels),
+                Json = await Task.Run(() => JsonConvert.SerializeObject(meta))
+            };
+            return mediaMetaJson;
         }
     }
 }

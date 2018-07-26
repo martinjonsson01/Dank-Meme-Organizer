@@ -35,8 +35,8 @@ app.post('/analyzeimage', (request, response) => {
     const features = [
         { type: "DOCUMENT_TEXT_DETECTION", maxResults: 1 },
         { type: "IMAGE_PROPERTIES", maxResults: 1 },
-        { type: "SAFE_SEARCH_DETECTION", maxResults: 1 },
-        { type: "WEB_DETECTION", maxResults: 5 }
+        { type: "SAFE_SEARCH_DETECTION", maxResults: 10 },
+        { type: "WEB_DETECTION", maxResults: 10 }
     ];
     const visionRequest = {
         image: { content: imageBase64 },

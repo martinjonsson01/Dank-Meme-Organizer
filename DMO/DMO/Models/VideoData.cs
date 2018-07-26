@@ -40,8 +40,9 @@ namespace DMO.Models
             var mediaClip = await MediaClip.CreateFromFileAsync(MediaFile);
             var mediaComposition = new MediaComposition();
             mediaComposition.Clips.Add(mediaClip);
+            var halfDuration = mediaComposition.Duration / 2;
             return await mediaComposition.GetThumbnailAsync(
-                TimeSpan.FromMilliseconds(0), 0, 0, VideoFramePrecision.NearestKeyFrame);
+                halfDuration, 0, 0, VideoFramePrecision.NearestKeyFrame);
         }
     }
 }

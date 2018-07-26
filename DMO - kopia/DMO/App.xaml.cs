@@ -49,6 +49,11 @@ namespace DMO
         /// </summary>
         public static  List<MediaData> MediaDatas = new List<MediaData>();
 
+        /// <summary>
+        /// The <see cref="MediaMetadata"/> taken directly from the database. Don't mess with these, they are supposed to be untainted.
+        /// </summary>
+        public static List<MediaMetadata> DatabaseMetaDatas = new List<MediaMetadata>();
+
         public App()
         {
             InitializeComponent();
@@ -82,8 +87,8 @@ namespace DMO
                 // Creates and/or migrates the database if it does not exist/is not up to date.
                 await context.Database.MigrateAsync();
 
-                var metas = await context.GetAllMetadatasAsync();
-                foreach (var meta in metas)
+                DatabaseMetaDatas = await context.GetAllMetadatasAsync();
+                foreach (var meta in DatabaseMetaDatas)
                 {
                     var mediaData = await MediaData.CreateFromMediaMetadataAsync(meta);
                     MediaDatas.Add(mediaData);

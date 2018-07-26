@@ -1,4 +1,5 @@
-﻿using DMO.Services.SettingsServices;
+﻿using DMO.Models;
+using DMO.Services.SettingsServices;
 using System;
 using System.ComponentModel;
 using System.Threading.Tasks;
@@ -74,21 +75,9 @@ namespace DMO.Controls
         public DelegateCommand DeleteCommand
             => new DelegateCommand(async () =>
             {
-                if (App.Gallery.IsEvaluating)
-                {
-                    _deleteConfirmDialog?.Hide();
-                    var errorDialog = new ContentDialog()
-                    {
-                        Title = "Cannot delete file.",
-                        Content = "Please wait for image evaluation to finish before deleting any files.",
-                        PrimaryButtonText = "Ok",
-                    };
-                    await errorDialog.ShowAsync();
-                    return;
-                }
                 var mediaFile = App.Files[FileName];
-                App.Gallery.RemoveFile(mediaFile);
-                await mediaFile.DeleteAsync();
+
+                await MediaData.DeleteAsync(mediaFile, _deleteConfirmDialog);
             });
 
         public DelegateCommand RenameCommand

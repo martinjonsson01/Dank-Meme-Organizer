@@ -107,7 +107,7 @@ namespace DMO.Controls
                     return;
                 }
                 var mediaFile = App.Files[FileName];
-                App.Gallery.RemoveFile(mediaFile);
+                App.Gallery.RemoveFile(mediaFile.Path);
                 await mediaFile.DeleteAsync();
             });
 
@@ -138,13 +138,16 @@ namespace DMO.Controls
 
             if (name == nameof(FileName))
             {
-                // Get media file using file name.
-                var mediaFile = App.Files[FileName];
-                // Apply image source.
-                var imageBitmap = new BitmapImage();
-                Media.Source = imageBitmap;
-                // Open stream to file and apply as bitmap source.
-                await imageBitmap.SetSourceAsync(await mediaFile.OpenReadAsync());
+                if (App.Files.ContainsKey(FileName))
+                {
+                    // Get media file using file name.
+                    var mediaFile = App.Files[FileName];
+                    // Apply image source.
+                    var imageBitmap = new BitmapImage();
+                    Media.Source = imageBitmap;
+                    // Open stream to file and apply as bitmap source.
+                    await imageBitmap.SetSourceAsync(await mediaFile.OpenReadAsync());
+                }
             }
         }
 

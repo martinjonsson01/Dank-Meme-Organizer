@@ -141,7 +141,7 @@ namespace DMO.Controls
                     return;
                 }
                 var mediaFile = App.Files[FileName];
-                App.Gallery.RemoveFile(mediaFile);
+                App.Gallery.RemoveFile(mediaFile.Path);
                 await mediaFile.DeleteAsync();
             });
 
@@ -195,20 +195,23 @@ namespace DMO.Controls
         {
             if (!string.IsNullOrEmpty(FileName))
             {
-                // Apply volume.
-                MediaElement.Volume = SettingsService.Instance.MediaVolume;
-                // Get media file using file name.
-                var mediaFile = App.Files[FileName];
-                // Load thumbnail.
-                var thumbnail = await mediaFile.GetThumbnailAsync(ThumbnailMode.SingleItem);
-                // TODO: MediaElement becomes null between the await-s, try reinstating a new one when it does that.
-                // Apply poster source.
-                var thumbnailBitmap = new BitmapImage();
-                MediaElement.PosterSource = thumbnailBitmap;
-                await thumbnailBitmap.SetSourceAsync(thumbnail);
-                _mediaSource = MediaSource.CreateFromStorageFile(mediaFile);
-                // Open stream to media file and set as source for video.
-                MediaElement.SetPlaybackSource(_mediaSource);
+                if (App.Files.ContainsKey(FileName))
+                {
+                    // Apply volume.
+                    MediaElement.Volume = SettingsService.Instance.MediaVolume;
+                    // Get media file using file name.
+                    var mediaFile = App.Files[FileName];
+                    // Load thumbnail.
+                    var thumbnail = await mediaFile.GetThumbnailAsync(ThumbnailMode.SingleItem);
+                    // TODO: MediaElement becomes null between the await-s, try reinstating a new one when it does that.
+                    // Apply poster source.
+                    var thumbnailBitmap = new BitmapImage();
+                    MediaElement.PosterSource = thumbnailBitmap;
+                    await thumbnailBitmap.SetSourceAsync(thumbnail);
+                    _mediaSource = MediaSource.CreateFromStorageFile(mediaFile);
+                    // Open stream to media file and set as source for video.
+                    MediaElement.SetPlaybackSource(_mediaSource);
+                }
             }
         }
 

@@ -49,7 +49,7 @@ namespace DMO.Behaviours
                                         var folder = await StorageApplicationPermissions.FutureAccessList.GetFolderAsync("gallery");
                                         var mediaFile = await file.CopyAsync(folder, file.Name, NameCollisionOption.GenerateUniqueName);
                                         // Add new media file to gallery.
-                                        await vm.Gallery.AddFile(vm.TileSize, mediaFile);
+                                        await vm.Gallery.AddFileAsync(vm.TileSize, mediaFile);
                                     }
                                 }
                             }
