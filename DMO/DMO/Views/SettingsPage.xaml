@@ -8,11 +8,14 @@
       xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
       xmlns:local="using:DMO.Views"
       xmlns:converters="using:DMO.Converters"
+      xmlns:tenconverters="using:Template10.Converters"
       xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
       xmlns:vm="using:DMO.ViewModels" mc:Ignorable="d">
 
     <Page.Resources>
         <converters:TopThicknessConverter x:Key="TopThicknessConverter"/>
+        <converters:StartupTaskStateToEnabledConverter x:Key="StartupTaskStateToEnabledConverter"/>
+        <converters:StartupTaskStateToButtonTextConverter x:Key="StartupTaskStateToButtonTextConverter"/>
     </Page.Resources>
     
     <Page.DataContext>
@@ -43,11 +46,20 @@
                                       RelativePanel.AlignLeftWithPanel="True"
                                       RelativePanel.AlignTopWithPanel="True" />
 
-                        <Button Margin="0,32,0,0"
+                        <Button x:Name="FolderChangeButton"
+                                Margin="0,32,0,0"
                                 Command="{x:Bind ViewModel.SettingsPartViewModel.ChangeFolderCommand}"
                                 Content="Change Dank Meme folder location"
-                                RelativePanel.AlignHorizontalCenterWithPanel="True"
+                                RelativePanel.AlignLeftWithPanel="True"
                                 RelativePanel.Below="ToggleSwitchAutoplayGifs" />
+
+                        <Button x:Name="EnableStartupTaskButton"
+                                Margin="0, 32, 0, 0"
+                                IsEnabled="{x:Bind ViewModel.SettingsPartViewModel.StartupTaskState, Mode=OneWay, Converter={StaticResource StartupTaskStateToEnabledConverter}}"
+                                Command="{x:Bind ViewModel.SettingsPartViewModel.EnableStartupTaskCommand}"
+                                Content="{x:Bind ViewModel.SettingsPartViewModel.StartupTaskState, Mode=OneWay, Converter={StaticResource StartupTaskStateToButtonTextConverter}, FallbackValue=Placeholder}"
+                                RelativePanel.AlignLeftWithPanel="True"
+                                RelativePanel.Below="FolderChangeButton" />
 
                     </RelativePanel>
 

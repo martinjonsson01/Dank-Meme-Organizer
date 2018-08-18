@@ -29,6 +29,12 @@ namespace DMO.Services.SettingsServices
             }
         }
 
+        public bool InfoPanelOpen
+        {
+            get => _helper.Read(nameof(InfoPanelOpen), false);
+            set => _helper.Write(nameof(InfoPanelOpen), value);
+        }
+
         public ApplicationTheme AppTheme
         {
             get

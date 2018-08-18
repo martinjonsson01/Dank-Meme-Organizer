@@ -34,8 +34,6 @@ namespace DMO.Models
 
         private StorageFolder _folder;
 
-        private int _imageSize;
-
         /// <summary>
         /// This list contains media StorageFiles that have lost its MediaData.
         /// This is usually caused by the file being deleted, moved or renamed while
@@ -50,6 +48,8 @@ namespace DMO.Models
         public string RootFolderPath { get; }
 
         public ObservableCollection<MediaData> MediaDatas { get; }
+
+        public int ImageSize { get; set; }
 
         public int FilesFound { get; set; }
 
@@ -111,7 +111,7 @@ namespace DMO.Models
             if (!StorageApplicationPermissions.FutureAccessList.ContainsItem("gallery"))
                 return;
 
-            _imageSize = imageSize;
+            ImageSize = imageSize;
 
             _folder = await StorageApplicationPermissions.FutureAccessList.GetFolderAsync("gallery");
             
@@ -125,8 +125,13 @@ namespace DMO.Models
                     IndexerOption = IndexerOption.UseIndexerWhenAvailable,
                 };
 
+                // Sort results.
+                queryOptions.SortOrder.Clear();
+                var sortEntry = QueryUtils.GetSortEntryFromSettings();
+                queryOptions.SortOrder.Add(sortEntry);
+
                 // Prefetch thumbnails.
-                queryOptions.SetThumbnailPrefetch(ThumbnailMode.SingleItem, (uint)imageSize, ThumbnailOptions.ResizeThumbnail);
+                queryOptions.SetThumbnailPrefetch(ThumbnailMode.SingleItem, (uint)imageSize, ThumbnailOptions.UseCurrentScale);
                 queryOptions.SetPropertyPrefetch(PropertyPrefetchOptions.ImageProperties, new[] { "System.DateModified" });
 
                 // Create query.
@@ -135,7 +140,7 @@ namespace DMO.Models
                 // Register tracker.
                 _query.ContentsChanged += Query_ContentsChanged;
 
-                var mediaFiles = await _query.GetFilesAsync();
+                /*var mediaFiles = await _query.GetFilesAsync();
                 FilesFound = mediaFiles.Count;
                 sw.Stop();
                 Debug.WriteLine($"File query completed! Elapsed time: {sw.ElapsedMilliseconds} ms {mediaFiles.Count} files found.");
@@ -145,7 +150,7 @@ namespace DMO.Models
                 foreach (var mediaFile in mediaFiles)
                 {
                     // Don't bother with files not supported by MIME.
-                    if (!FileTypes.IsSupportedMIME(mediaFile.ContentType))
+                    if (!FileTypes.IsSupportedExtension(mediaFile.FileType))
                         continue;
 
                     if (mediaDatas == null)
@@ -175,7 +180,56 @@ namespace DMO.Models
                     }
                 }
                 sw.Stop();
-                Debug.WriteLine($"File parsing completed! Elapsed time: {sw.ElapsedMilliseconds} ms {mediaFiles.Count} files parsed.");
+                Debug.WriteLine($"File parsing completed! Elapsed time: {sw.ElapsedMilliseconds} ms {mediaFiles.Count} files parsed.");*/
+                FilesFound = (int)await _query.GetItemCountAsync();
+                sw.Stop();
+                Debug.WriteLine($"File query completed! Elapsed time: {sw.ElapsedMilliseconds} ms {FilesFound} files found.");
+
+                sw.Reset();
+                sw.Start();
+                uint index = 0, stepSize = 50;
+                var files = await _query.GetFilesAsync(index, stepSize);
+                index += stepSize;
+                while (files.Count != 0)
+                {
+                    var fileTask = _query.GetFilesAsync(index, stepSize).AsTask();
+                    foreach (var mediaFile in files)
+                    {
+                        // Don't bother with files not supported by MIME.
+                        if (!FileTypes.IsSupportedExtension(mediaFile.FileType))
+                            continue;
+
+                        if (mediaDatas == null)
+                        {
+                            await AddFileAsync(imageSize, mediaFile, false);
+                        }
+                        else
+                        {
+                            // Find mediaData in mediaDatas based on path of mediaFile.
+                            var matchingMediaDatas = mediaDatas.Where(data => data?.Meta?.MediaFilePath?.Equals(mediaFile?.Path) ?? false).ToList();
+
+                            var mediaData = matchingMediaDatas.FirstOrDefault();
+
+                            if (mediaData is null)
+                            {
+                                // Track the lost media files.
+                                _lostMediaFiles.Add(mediaFile);
+                                continue;
+                            }
+                            if (mediaData.Meta is null) continue;
+                            if (string.IsNullOrEmpty(mediaData.Meta.MediaFilePath)) continue;
+
+                            // Tell the mediaData which file belongs to it.
+                            mediaData.MediaFile = mediaFile;
+
+                            await AddFileAsync(imageSize, mediaFile, false, mediaData);
+                        }
+                    }
+                    files = await fileTask;
+                    index += stepSize;
+                }
+                sw.Stop();
+                Debug.WriteLine($"File parsing completed! Elapsed time: {sw.ElapsedMilliseconds} ms {FilesFound} files parsed.");
 
                 // Register tracker.
                 RegisterFolderContentTracker();
@@ -259,7 +313,7 @@ namespace DMO.Models
                 data.Meta.LastModified = lastModifiedDateTime;
             }
             MediaDatas.Add(data);
-
+            
             if (!App.Files.ContainsKey(mediaFile.Name))
                 App.Files.Add(mediaFile.Name, mediaFile);
 
@@ -286,7 +340,9 @@ namespace DMO.Models
                 await DuplicateModal.ProcessQueueAsync();
 
                 // If data or mediafile was removed during duplication handling, then don't try to evaluate online.
-                if (!File.Exists(data?.MediaFile?.Path)) return;
+                var fileName = Path.GetFileName(data?.MediaFile?.Path);
+                var exists = await _folder.TryGetItemAsync(fileName);
+                if (exists == null) return;
 
                 // Sign into firebase.
                 if (await FirebaseClient.Client.SignInPromptUserIfNecessary())
@@ -397,13 +453,25 @@ namespace DMO.Models
                 sw.Start();
                 IsEvaluating = true;
                 var evaluated = 0;
-                await TaskUtils.ForEachAsyncConcurrent(mediaDatasWithoutAnnotationData, async media =>
+                await mediaDatasWithoutAnnotationData.ForEachAsyncConcurrent(async media =>
                 {
-                    // Evaluate media thumbnail online.
-                    await media.EvaluateOnlineAsync(FirebaseClient.accessToken);
-                    // Update and then report progress.
-                    evaluated++;
-                    progress.Report(evaluated);
+                    try
+                    {
+                        // Evaluate media thumbnail online.
+                        await media.EvaluateOnlineAsync(FirebaseClient.accessToken);
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.WriteLine($"Exception occured when evaluating the media {media?.Title ?? "--"} online:");
+                        Debug.WriteLine(e.Message);
+                        Debug.WriteLine(e.StackTrace);
+                    }
+                    finally
+                    {
+                        // Update and then report progress.
+                        evaluated++;
+                        progress.Report(evaluated);
+                    }
                 }, cancellationToken, 5);
                 IsEvaluating = false;
                 sw.Stop();
@@ -532,7 +600,7 @@ namespace DMO.Models
 
                             if (mediaFile == null) return;
 
-                            await AddFileAsync(_imageSize, mediaFile);
+                            await AddFileAsync(ImageSize, mediaFile);
                         }
                         catch (Exception e)
                         {
@@ -564,7 +632,7 @@ namespace DMO.Models
                                 // If file can still not be found then return.
                                 if (lostMediaData == null) return;
                                 // Add file to gallery, including the lost media data.
-                                await AddFileAsync(_imageSize, lostMediaFile, false, lostMediaData);
+                                await AddFileAsync(ImageSize, lostMediaFile, false, lostMediaData);
                             }
                             else if (mediaData == null) return;
 

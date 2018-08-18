@@ -8,15 +8,19 @@ namespace DMO.Utility
 {
     public static class FileTypes
     {
-        public static List<string> Extensions = new List<string>
+        public static List<string> Extensions
         {
-            ".jpg",
-            ".png",
-            ".gif",
-            ".mp4",
-            ".mov",
-            ".webm",
-        };
+            get
+            {
+                var extensions = new List<string>();
+                foreach(var mimeType in MIMETypes)
+                {
+                    var mimeExtensions = MimeTypeMap.GetExtensionsOfMimeType(mimeType);
+                    extensions.AddRange(mimeExtensions);
+                }
+                return extensions;
+            }
+        }
         public static List<string> MIMETypes = new List<string>
         {
             "image",
@@ -27,6 +31,14 @@ namespace DMO.Utility
         {
             var types = MIMEType.Split('/');
             return MIMETypes.Contains(types[0]);
+        }
+
+        public static bool IsSupportedExtension(string extension)
+        {
+            if (extension.StartsWith('.'))
+                extension.Remove(0, 1);
+            var mimeType = MimeTypeMap.GetMimeType(extension);
+            return MIMETypes.Contains(mimeType.Split('/').FirstOrDefault().ToLowerInvariant());
         }
     }
 }

@@ -10,7 +10,8 @@
     d:DesignWidth="400">
 
     <Image x:Name="Media"
-           Stretch="Uniform">
+           Stretch="Uniform"
+           CacheMode="BitmapCache">
         <Image.ContextFlyout>
             <MenuFlyout>
                 <!--<MenuFlyoutItem Text="Share">

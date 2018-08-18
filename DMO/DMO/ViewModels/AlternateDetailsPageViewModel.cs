@@ -1,6 +1,5 @@
 ﻿using DMO.Extensions;
 using DMO.Models;
-using DMO.Services.SettingsServices;
 using DMO.Utility;
 using DMO_Model.GoogleAPI.Models;
 using System;
@@ -18,12 +17,13 @@ using Windows.Media.Core;
 using Windows.Storage;
 using Windows.Storage.AccessCache;
 using Windows.System;
+using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Media.Imaging;
 using Windows.UI.Xaml.Navigation;
 
 namespace DMO.ViewModels
 {
-    public class DetailsPageViewModel : ViewModelBase
+    public class AlternateDetailsPageViewModel : ViewModelBase
     {
 
         #region Private Members
@@ -34,9 +34,17 @@ namespace DMO.ViewModels
 
         public string MediaDataKey { get; set; }
 
+        public string MediaSource
+        {
+            get
+            {
+                return MediaData?.Meta?.MediaFilePath ?? MediaData?.MediaFile?.Path;
+            }
+        }
+        
         public MediaData MediaData { get; set; }
 
-        public bool InfoOpen => SettingsService.Instance.InfoPanelOpen;
+        public bool InfoOpen { get; set; }
 
         public string Filename
         {
@@ -104,7 +112,7 @@ namespace DMO.ViewModels
                 return "--";
             }
         }
-        
+
         public List<WebEntity> Entities
         {
             get
@@ -180,8 +188,7 @@ namespace DMO.ViewModels
         public DelegateCommand InfoCommand
             => _infoCommand ?? (_infoCommand = new DelegateCommand(() =>
             {
-                SettingsService.Instance.InfoPanelOpen = !SettingsService.Instance.InfoPanelOpen;
-                RaisePropertyChanged(nameof(InfoOpen));
+                InfoOpen = !InfoOpen;
             }));
 
         private DelegateCommand _openFolderCommand;
@@ -229,7 +236,7 @@ namespace DMO.ViewModels
 
         #region Constructor
 
-        public DetailsPageViewModel()
+        public AlternateDetailsPageViewModel()
         {
 
         }

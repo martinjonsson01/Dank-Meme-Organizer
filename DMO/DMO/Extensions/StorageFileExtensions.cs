@@ -1,4 +1,5 @@
-﻿using System;
+﻿using DMO.Utility;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -11,15 +12,11 @@ namespace DMO.Extensions
     {
         public static bool IsVideo(this StorageFile file)
         {
-            switch (file.FileType)
-            {
-                case ".mp4":
-                case ".mov":
-                case ".webm":
-                    return true;
-                default:
-                    return false;
-            }
+            var extension = file.FileType;
+            if (extension.StartsWith('.'))
+                extension.Remove(0, 1);
+            var mimeType = MimeTypeMap.GetMimeType(extension);
+            return mimeType.Split('/').FirstOrDefault().Equals("video", StringComparison.InvariantCultureIgnoreCase);
         }
     }
 }

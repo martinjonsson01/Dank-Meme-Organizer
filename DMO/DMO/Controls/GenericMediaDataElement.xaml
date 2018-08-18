@@ -12,22 +12,14 @@
     <Grid>
 
         <!--  Video element  -->
-        <Viewbox VerticalAlignment="Center"
-                 HorizontalAlignment="Center"
-                 StretchDirection="DownOnly"
-                 Visibility="{x:Bind IsVideo, Mode=OneWay}">
-            <local:MediaPlayerHover x:Name="_mediaPlayerElement"
-                                    FileName="{x:Bind VideoMediaData.Title, Mode=OneWay}"/>
-        </Viewbox>
+        <local:MediaPlayerHover x:Name="_mediaPlayerElement"
+                                Visibility="{x:Bind IsVideo, Mode=OneWay}"
+                                FileName="{x:Bind VideoMediaData.Title, Mode=OneWay}"/>
 
         <!--  Image/Gif element  -->
-        <Viewbox VerticalAlignment="Center"
-                 HorizontalAlignment="Center"
-                 StretchDirection="DownOnly"
-                 Visibility="{x:Bind IsImage, Mode=OneWay}">
-            <local:FastImage x:Name="_imageElement"
-                             FileName="{x:Bind ImageMediaData.Title, Mode=OneWay}"/>
-        </Viewbox>
+        <local:FastImage x:Name="_imageElement"
+                         Visibility="{x:Bind IsImage, Mode=OneWay}"
+                         FileName="{x:Bind ImageMediaData.Title, Mode=OneWay}"/>
 
     </Grid>
     

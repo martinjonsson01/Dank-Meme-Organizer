@@ -15,6 +15,7 @@ using Template10.Controls;
 using Template10.Services.SerializationService;
 using Windows.Foundation;
 using Windows.Foundation.Collections;
+using Windows.UI;
 using Windows.UI.Composition;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
@@ -46,6 +47,7 @@ namespace DMO.Views
             WindowWrapper.Current().Dispatcher.Dispatch(() =>
             {
                 var modal = Window.Current.Content as ModalDialog;
+                modal.ModalBackground = new SolidColorBrush(Colors.Black) { Opacity = .5 };
                 DuplicateModal view = null;
                 if (show)
                 {

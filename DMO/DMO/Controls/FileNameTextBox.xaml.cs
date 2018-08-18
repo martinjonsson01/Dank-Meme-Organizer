@@ -48,6 +48,21 @@ namespace DMO.Controls
             }
         }
 
+        private bool selectName = true;
+        private void TextBox_SelectionChanged(object sender, RoutedEventArgs e)
+        {
+            if (!selectName)
+                return;
+            var extensionIndex = Text.IndexOf(Path.GetExtension(Text));
+
+            if (extensionIndex == 0)
+                extensionIndex = Text.Length - 1;
+
+            TextBox.Select(0, extensionIndex);
+
+            selectName = false;
+        }
+
         private void LoseFocus(object sender)
         {
             var control = sender as Control;
@@ -56,6 +71,16 @@ namespace DMO.Controls
             control.IsEnabled = false;
             control.IsEnabled = true;
             control.IsTabStop = isTabStop;
+        }
+
+        private void TextBox_FocusDisengaged(Control sender, FocusDisengagedEventArgs args)
+        {
+            selectName = false;
+        }
+        
+        private void TextBox_GettingFocus(UIElement sender, GettingFocusEventArgs args)
+        {
+            selectName = true;
         }
     }
 }

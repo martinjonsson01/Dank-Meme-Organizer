@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
@@ -27,19 +28,34 @@ namespace DMO.Utility
         /// <summary>
         /// Retrieve the dimensions of an online image, downloading as little as possible
         /// </summary>
-        public static async Task<Size> GetWebDimensions(Uri uri)
+        public static async Task<Size> GetWebDimensionsAsync(Uri uri, TimeSpan timeout = default(TimeSpan))
         {
+            var sw = new Stopwatch();
+            sw.Start();
+
             var moreBytes = true;
             var currentStart = 0;
             byte[] allBytes = { };
 
+            if (timeout == default(TimeSpan))
+                timeout = TimeSpan.FromSeconds(5);
+
+            var dueTime = DateTime.Now.Add(timeout);
+
             while (moreBytes)
             {
+                // Stop fetching more bytes if dueTime has passed.
+                if (DateTime.Now > dueTime)
+                    moreBytes = false;
+
                 try
                 {
                     var newBytes = await GetSomeBytes(uri, currentStart, currentStart + ChunkSize - 1);
                     if (newBytes.Length < ChunkSize) moreBytes = false;
                     allBytes = Combine(allBytes, newBytes);
+
+                    sw.Stop();
+                    Debug.WriteLine($"Got web dimensions without downloading entire image! Took {sw.ElapsedMilliseconds} ms");
                     return GetDimensions(new BinaryReader(new MemoryStream(allBytes)));
                 }
                 catch
@@ -48,22 +64,21 @@ namespace DMO.Utility
                 }
             }
 
+            sw.Stop();
+            Debug.WriteLine($"Got web dimensions without downloading entire image! Took {sw.ElapsedMilliseconds} ms");
             return new Size(0, 0);
         }
 
         private static async Task<byte[]> GetSomeBytes(Uri uri, int startRange, int endRange)
         {
-            using (var client = App.HttpClient)
+            var request = new HttpRequestMessage { RequestUri = uri };
+            request.Headers.Range = new RangeHeaderValue(startRange, endRange);
+            try
             {
-                var request = new HttpRequestMessage { RequestUri = uri };
-                request.Headers.Range = new RangeHeaderValue(startRange, endRange);
-                try
-                {
-                    var response = await client.SendAsync(request);
-                    return await response.Content.ReadAsByteArrayAsync();
-                }
-                catch { }
+                var response = await App.HttpClientNoRedirect.SendAsync(request);
+                return await response.Content.ReadAsByteArrayAsync();
             }
+            catch { }
             return new byte[] { };
         }
 

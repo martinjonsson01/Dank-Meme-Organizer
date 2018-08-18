@@ -9,6 +9,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices.WindowsRuntime;
 using Windows.Foundation;
 using Windows.Foundation.Collections;
+using Windows.Media.Editing;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Controls.Primitives;
@@ -90,16 +91,16 @@ namespace DMO.Controls
             Debug.WriteLine($"Bitmap loaded. Took {sw.ElapsedMilliseconds} ms");
 
             // Update metadata about image size.
-            mediaData.Meta.Height = imageBitmap.PixelHeight;
+            /*mediaData.Meta.Height = imageBitmap.PixelHeight;
             mediaData.Meta.Width = imageBitmap.PixelWidth;
             mediaData.Meta.Height = imageBitmap.PixelHeight;
             mediaData.Meta.Width = imageBitmap.PixelWidth;
             ImageMediaData.Meta.Height = imageBitmap.PixelHeight;
             ImageMediaData.Meta.Width = imageBitmap.PixelWidth;
-            RaisePropertyChanged(nameof(ImageMediaData.Meta));
+            RaisePropertyChanged(nameof(ImageMediaData.Meta));*/
 
             Debug.WriteLine($"{DateTime.Now.Second}:{DateTime.Now.Millisecond} Media data loaded.");
         }
-
+        
     }
 }

@@ -20,9 +20,16 @@ namespace DMO.Utility
                 var metaDatas = new List<MediaMetadata>();
                 foreach (var data in mediaDatas)
                     metaDatas.Add(data.Meta);
-
-                await context.SaveAllMetadatasAsync(metaDatas);
-
+                try
+                {
+                    await context.SaveAllMetadatasAsync(metaDatas);
+                }
+                catch (Exception e)
+                {
+                    Debug.WriteLine("Could not save all media datas in database because of exception:");
+                    Debug.WriteLine(e.Message);
+                    Debug.WriteLine(e.StackTrace);
+                }
                 // Update static list.
                 App.MediaDatas = new List<MediaData>(mediaDatas);
             }
@@ -33,18 +40,30 @@ namespace DMO.Utility
             var sw = new Stopwatch();
             sw.Start();
 
-            // Find MediaMetaJson in database list.
-            var metaJson = context.MediaMetaJsons.Include(m => m.Labels).SingleOrDefault(mj => mj.Labels.ListEquals(metaToSave.Labels));
-
-            if (metaJson != null)
+            try
             {
-                var newMetaJson = new MediaMetaJson(metaToSave);
-                metaJson.Json = newMetaJson.Json;
+                // Find MediaMetaJson in database list.
+                var metaJson = context.MediaMetaJsons.Include(m => m.Labels).SingleOrDefault(mj => mj.Labels.ListEquals(metaToSave.Labels));
 
-                await context.SaveChangesAsync();
+                if (metaJson != null)
+                {
+                    var newMetaJson = new MediaMetaJson(metaToSave);
+                    metaJson.Json = newMetaJson.Json;
+
+                    await context.SaveChangesAsync();
+                }
             }
-            sw.Stop();
-            Debug.WriteLine($"Single MediaMetadata updated! Elapsed time: {sw.ElapsedMilliseconds} ms Saved 1 object");
+            catch(Exception e)
+            {
+                Debug.WriteLine("Could not update media data in database because of exception:");
+                Debug.WriteLine(e.Message);
+                Debug.WriteLine(e.StackTrace);
+            }
+            finally
+            {
+                sw.Stop();
+                Debug.WriteLine($"Single MediaMetadata updated! Elapsed time: {sw.ElapsedMilliseconds} ms Saved 1 object");
+            }
         }
 
         public static async Task SaveAllMetadatasAsync(this MediaMetaDatabaseContext context, ICollection<MediaMetadata> metas)
@@ -79,7 +98,16 @@ namespace DMO.Utility
 
             sw.Reset();
             sw.Start();
-            await context.SaveChangesAsync();
+            try
+            {
+                await context.SaveChangesAsync();
+            }
+            catch (Exception e)
+            {
+                Debug.WriteLine("Could not save changes to database because of exception:");
+                Debug.WriteLine(e.Message);
+                Debug.WriteLine(e.StackTrace);
+            }
             sw.Stop();
             Debug.WriteLine($"MediaMetaJsons saved! Elapsed time: {sw.ElapsedMilliseconds} ms Saved {metas.Count} objects");
         }

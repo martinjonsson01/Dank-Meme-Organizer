@@ -28,6 +28,7 @@ using DMO.GoogleAPI;
 using DMO.Database;
 using System.Threading;
 using Newtonsoft.Json;
+using Windows.ApplicationModel.ExtendedExecution;
 
 namespace DMO.ViewModels
 {
@@ -184,7 +185,7 @@ namespace DMO.ViewModels
                         grid.PrepareConnectedAnimation("detailsVideo1", mediaData, "MediaPlayerHover");
                     
                     Debug.WriteLine($"{DateTime.Now.Second}:{DateTime.Now.Millisecond} Navigating to {nameof(DetailsPage)}...");
-                    await NavigationService.NavigateAsync(typeof(DetailsPage), mediaData.MediaFile.Name, new ContinuumNavigationTransitionInfo());
+                    await NavigationService.NavigateAsync(typeof(DetailsPage), mediaData.MediaFile.Name, new SuppressNavigationTransitionInfo());
                     Debug.WriteLine($"{DateTime.Now.Second}:{DateTime.Now.Millisecond} Navigated to {nameof(DetailsPage)}!");
                 }
             }
@@ -329,14 +330,19 @@ namespace DMO.ViewModels
                     }
                 }
 
-                // Cancel all current media evaluation processes.
-                _evaluationCancellationTokenSource.Cancel();
+                using (var session = new ExtendedExecutionSession { Reason = ExtendedExecutionReason.SavingData })
+                {
+                    // Request extension. This is done so that if the application can finish saving all data
+                    // to the database when being suspended.
+                    var result = await session.RequestExtensionAsync();
+                    Debug.WriteLine($"Extension request returned result {result}");
 
-                // Save all metadatas asynchronously before suspending.
-                await DatabaseUtils.SaveAllMetadatasAsync(Gallery.MediaDatas);
+                    // Save all metadatas asynchronously before suspending.
+                    await DatabaseUtils.SaveAllMetadatasAsync(Gallery.MediaDatas);
+                }
             }
         }
-
+        
         #endregion
 
         #region Private Methods
@@ -365,11 +371,11 @@ namespace DMO.ViewModels
             // Apply sort description.
             SearchResults.SortDescriptions.Add(GetSortDescription(SettingsService.Instance.SortBy));
             // Scan all media in gallery.
-            using (SearchResults.DeferRefresh()) // Defer list updating until all items have been added.
-            {
+            //using (SearchResults.DeferRefresh()) // Defer list updating until all items have been added.
+            //{
                 // Load folder contents.
                 await Gallery.LoadFolderContents(TileSize, mediaDatas);
-            }
+            //}
             // Update static list.
             App.MediaDatas = Gallery.MediaDatas.ToList();
         }

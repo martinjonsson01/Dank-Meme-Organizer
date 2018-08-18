@@ -1,10 +1,15 @@
 ﻿using DMO.Utility;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Template10.Mvvm;
+using Windows.Storage;
+using Windows.System;
 
 namespace DMO.Models
 {
@@ -12,13 +17,37 @@ namespace DMO.Models
     {
         public MediaData MediaData { get; set; }
 
-        public string Path => MediaData?.MediaFile?.Path ?? "--";
+        public string FolderPath => Path.GetDirectoryName(MediaData?.MediaFile?.Path) ?? "--";
 
         public string Size => ((long)MediaData?.BasicProperties?.Size).BytesToString() ?? "--";
 
         public string Dimensions => $"{MediaData?.Meta?.Width} x {MediaData?.Meta?.Height}";
 
         public string Added => MediaData?.Meta?.DateAdded.ToString("f", CultureInfo.InstalledUICulture) ?? "--";
+
+        private DelegateCommand _openFolderCommand;
+        public DelegateCommand OpenFolderCommand
+            => _openFolderCommand ?? (_openFolderCommand = new DelegateCommand(async () =>
+            {
+                try
+                {
+                    var folder = await StorageFolder.GetFolderFromPathAsync(FolderPath);
+                    if (folder == null) return;
+                    var options = new FolderLauncherOptions
+                    {
+                        DesiredRemainingView = Windows.UI.ViewManagement.ViewSizePreference.UseMore
+                    };
+                    if (MediaData.MediaFile != null)
+                        options.ItemsToSelect.Add(MediaData.MediaFile);
+                    await Launcher.LaunchFolderAsync(folder, options);
+                }
+                catch (Exception e)
+                {
+                    Debug.WriteLine("Could not open folder in explorer due to exception:");
+                    Debug.WriteLine(e.Message);
+                    Debug.WriteLine(e.StackTrace);
+                }
+            }));
 
         public DuplicateMediaEntry(MediaData mediaData)
         {

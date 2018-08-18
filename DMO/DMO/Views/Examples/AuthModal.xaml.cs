@@ -13,9 +13,11 @@ using System.Threading.Tasks;
 using Template10.Common;
 using Template10.Controls;
 using Windows.Security.Authentication.Web;
+using Windows.UI;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Input;
+using Windows.UI.Xaml.Media;
 
 namespace DMO.Views
 {
@@ -34,6 +36,7 @@ namespace DMO.Views
             WindowWrapper.Current().Dispatcher.Dispatch(() =>
             {
                 var modal = Window.Current.Content as ModalDialog;
+                modal.ModalBackground = new SolidColorBrush(Colors.Black) { Opacity = .5 };
                 if (!(modal.ModalContent is AuthModal view))
                     modal.ModalContent = view = new AuthModal();
                 modal.IsModal = show;

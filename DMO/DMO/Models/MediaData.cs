@@ -55,10 +55,12 @@ namespace DMO.Models
         public string Title
         {
             get => MediaFile?.Name;
-            set => TryRenameFile(value);
+            set => TryRenameFileAsync(value);
         }
         
         public DateTimeOffset Created => MediaFile?.DateCreated ?? DateTimeOffset.Now;
+
+        public DateTime LastModified => Meta?.LastModified.Date ?? DateTime.Now;
 
         #endregion
 
@@ -133,7 +135,7 @@ namespace DMO.Models
         /// Tries to rename this file to the provided value.
         /// </summary>
         /// <param name="newName">The new name of this file.</param>
-        public async void TryRenameFile(string newName)
+        public async void TryRenameFileAsync(string newName)
         {
             if (MediaFile == null) return;
             if (string.IsNullOrEmpty(newName)) return;
@@ -155,7 +157,7 @@ namespace DMO.Models
 
         /// <summary>
         /// Updates any paths or names to this file in memory.
-        /// NOTE: Does not rename the actual file on disk. Use <see cref="TryRenameFile(string)"/> for that.
+        /// NOTE: Does not rename the actual file on disk. Use <see cref="TryRenameFileAsync(string)"/> for that.
         /// </summary>
         /// <param name="newName"></param>
         /// <returns></returns>
