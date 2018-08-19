@@ -1,5 +1,6 @@
 ﻿using DMO.Models;
 using DMO.Utility;
+using DMO.Utility.Logging;
 using DMO.ViewModels;
 using Microsoft.Xaml.Interactivity;
 using System;
@@ -130,9 +131,8 @@ namespace DMO.Behaviours
             }
             catch (Exception e)
             {
-                Debug.WriteLine("Error occured when trying to parse internet shortcut:");
-                Debug.WriteLine(e.Message);
-                Debug.WriteLine(e.StackTrace);
+                // Log Exception.
+                LifecycleLog.Exception(e);
                 return string.Empty;
             }
         }

@@ -8,6 +8,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
+using DMO.Utility.Logging;
 
 namespace DMO.Utility
 {
@@ -30,42 +31,39 @@ namespace DMO.Utility
         /// </summary>
         public static async Task<Size> GetWebDimensionsAsync(Uri uri, TimeSpan timeout = default(TimeSpan))
         {
-            var sw = new Stopwatch();
-            sw.Start();
-
-            var moreBytes = true;
-            var currentStart = 0;
-            byte[] allBytes = { };
-
-            if (timeout == default(TimeSpan))
-                timeout = TimeSpan.FromSeconds(5);
-
-            var dueTime = DateTime.Now.Add(timeout);
-
-            while (moreBytes)
+            // Time and log getting of web dimensions.
+            using (new DisposableLogger(WebLog.GetWebDimensionsBegin, WebLog.GetWebDimensionsEnd))
             {
-                // Stop fetching more bytes if dueTime has passed.
-                if (DateTime.Now > dueTime)
-                    moreBytes = false;
+                var moreBytes = true;
+                var currentStart = 0;
+                byte[] allBytes = { };
 
-                try
-                {
-                    var newBytes = await GetSomeBytes(uri, currentStart, currentStart + ChunkSize - 1);
-                    if (newBytes.Length < ChunkSize) moreBytes = false;
-                    allBytes = Combine(allBytes, newBytes);
+                if (timeout == default(TimeSpan))
+                    timeout = TimeSpan.FromSeconds(5);
 
-                    sw.Stop();
-                    Debug.WriteLine($"Got web dimensions without downloading entire image! Took {sw.ElapsedMilliseconds} ms");
-                    return GetDimensions(new BinaryReader(new MemoryStream(allBytes)));
-                }
-                catch
+                var dueTime = DateTime.Now.Add(timeout);
+
+                while (moreBytes)
                 {
-                    currentStart += ChunkSize;
+                    // Stop fetching more bytes if dueTime has passed.
+                    if (DateTime.Now > dueTime)
+                        moreBytes = false;
+
+                    try
+                    {
+                        var newBytes = await GetSomeBytes(uri, currentStart, currentStart + ChunkSize - 1);
+                        if (newBytes.Length < ChunkSize)
+                            moreBytes = false;
+                        allBytes = Combine(allBytes, newBytes);
+
+                        return GetDimensions(new BinaryReader(new MemoryStream(allBytes)));
+                    }
+                    catch
+                    {
+                        currentStart += ChunkSize;
+                    }
                 }
             }
-
-            sw.Stop();
-            Debug.WriteLine($"Got web dimensions without downloading entire image! Took {sw.ElapsedMilliseconds} ms");
             return new Size(0, 0);
         }
 

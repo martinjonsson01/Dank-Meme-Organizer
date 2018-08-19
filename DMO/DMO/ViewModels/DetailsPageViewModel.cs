@@ -2,6 +2,7 @@
 using DMO.Models;
 using DMO.Services.SettingsServices;
 using DMO.Utility;
+using DMO.Utility.Logging;
 using DMO_Model.GoogleAPI.Models;
 using System;
 using System.Collections.Generic;
@@ -204,9 +205,8 @@ namespace DMO.ViewModels
                 }
                 catch (Exception e)
                 {
-                    Debug.WriteLine("Could not open folder in explorer due to exception:");
-                    Debug.WriteLine(e.Message);
-                    Debug.WriteLine(e.StackTrace);
+                    // Log Exception.
+                    LifecycleLog.Exception(e);
                 }
             }));
 
@@ -299,9 +299,8 @@ namespace DMO.ViewModels
                             }
                             catch (Exception e)
                             {
-                                Debug.WriteLine("Exception occured when finding size and dimensions of online media:");
-                                Debug.WriteLine(e.Message);
-                                Debug.WriteLine(e.StackTrace);
+                                // Log Exception.
+                                LifecycleLog.Exception(e);
                             }
                         }
                     }

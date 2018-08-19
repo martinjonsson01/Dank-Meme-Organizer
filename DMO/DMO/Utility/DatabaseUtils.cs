@@ -1,9 +1,12 @@
 ﻿using DMO.Database;
 using DMO.Models;
+using DMO.Utility.Logging;
 using DMO_Model.Models;
 using Microsoft.EntityFrameworkCore;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
@@ -26,101 +29,126 @@ namespace DMO.Utility
                 }
                 catch (Exception e)
                 {
-                    Debug.WriteLine("Could not save all media datas in database because of exception:");
-                    Debug.WriteLine(e.Message);
-                    Debug.WriteLine(e.StackTrace);
+                    // Log Exception.
+                    LifecycleLog.Exception(e);
                 }
                 // Update static list.
                 App.MediaDatas = new List<MediaData>(mediaDatas);
             }
         }
 
+        public static async Task<List<MediaMetadata>> GetAllMetadatasAsync(this MediaMetaDatabaseContext context)
+        {
+            List<MediaMetaJson> metaJsons = null;
+            using (new DisposableLogger(
+                    DatabaseLog.QueryBegin,
+                    (sw) => DatabaseLog.QueryEnd(sw, metaJsons?.Count ?? 0)
+                ))
+            {
+                // Get all MediaMetaJsons from database using this LINQ query.
+                metaJsons = await context.MediaMetaJsons
+                                        .Include(j => j.Labels)
+                                        .ToListAsync();
+            }
+
+            var metas = new List<MediaMetadata>();
+            using (new DisposableLogger(
+                    DatabaseLog.DeserializationBegin,
+                    (sw) => DatabaseLog.DeserializationEnd(sw, metas?.Count ?? 0)
+                ))
+            {
+                // Deserialize the JSON data in each MediaMetaJson object into a MediaMetadata object and add it to metas.
+                foreach (var metaJson in metaJsons)
+                {
+                    var meta = await Task.Run(() => JsonConvert.DeserializeObject<MediaMetadata>(metaJson.Json));
+                    meta.Labels = new ObservableCollection<Label>(metaJson.Labels);
+                    metas.Add(meta);
+                }
+            }
+
+            return metas;
+        }
+
         public static async Task UpdateMediaMetaDataAsync(this MediaMetaDatabaseContext context, MediaMetadata metaToSave)
         {
-            var sw = new Stopwatch();
-            sw.Start();
-
             try
             {
-                // Find MediaMetaJson in database list.
-                var metaJson = context.MediaMetaJsons.Include(m => m.Labels).SingleOrDefault(mj => mj.Labels.ListEquals(metaToSave.Labels));
-
-                if (metaJson != null)
+                // Time and log updating and saving.
+                using (new DisposableLogger(DatabaseLog.UpdateSingleBegin, DatabaseLog.UpdateSingleEnd))
                 {
-                    var newMetaJson = new MediaMetaJson(metaToSave);
-                    metaJson.Json = newMetaJson.Json;
+                    // Find MediaMetaJson in database list.
+                    var metaJson = context.MediaMetaJsons.Include(m => m.Labels).SingleOrDefault(mj => mj.Labels.ListEquals(metaToSave.Labels));
 
-                    await context.SaveChangesAsync();
+                    if (metaJson != null)
+                    {
+                        var newMetaJson = new MediaMetaJson(metaToSave);
+                        metaJson.Json = newMetaJson.Json;
+
+                        await context.SaveChangesAsync();
+                    }
                 }
             }
             catch(Exception e)
             {
-                Debug.WriteLine("Could not update media data in database because of exception:");
-                Debug.WriteLine(e.Message);
-                Debug.WriteLine(e.StackTrace);
-            }
-            finally
-            {
-                sw.Stop();
-                Debug.WriteLine($"Single MediaMetadata updated! Elapsed time: {sw.ElapsedMilliseconds} ms Saved 1 object");
+                // Log Exception.
+                LifecycleLog.Exception(e);
             }
         }
 
         public static async Task SaveAllMetadatasAsync(this MediaMetaDatabaseContext context, ICollection<MediaMetadata> metas)
         {
-            var sw = new Stopwatch();
-            sw.Start();
-            var fullList = await context.MediaMetaJsons.Include(m => m.Labels).ToListAsync();
-            foreach (var meta in metas)
+            // Time and log serialization.
+            using (new DisposableLogger(DatabaseLog.SerializationBegin, (sw) => DatabaseLog.SerializationEnd(sw, metas.Count)))
             {
-                // If any MediaMetaJson has a set of labels that are equal to the ones of meta, then update it.
-                var toUpdate = fullList.FirstOrDefault(mmj => 
+                var fullList = await context.MediaMetaJsons.Include(m => m.Labels).ToListAsync();
+                foreach (var meta in metas)
                 {
-                    return mmj.Labels.ListEquals(meta.Labels);
-                });
+                    // If any MediaMetaJson has a set of labels that are equal to the ones of meta, then update it.
+                    var toUpdate = fullList.FirstOrDefault(mmj =>
+                    {
+                        return mmj.Labels.ListEquals(meta.Labels);
+                    });
 
 
-                // If there is an existing item to update.
-                if (toUpdate != null)
-                {
-                    var metaJson = await MediaMetaJson.FromMediaMetaAsync(meta);
-                    toUpdate.Json = metaJson.Json;
-                }
-                else // If a new item needs to be added.
-                {
-                    meta.DateAdded = DateTime.Now;
-                    var metaJson = await MediaMetaJson.FromMediaMetaAsync(meta);
-                    context.MediaMetaJsons.Add(metaJson);
+                    // If there is an existing item to update.
+                    if (toUpdate != null)
+                    {
+                        var metaJson = await MediaMetaJson.FromMediaMetaAsync(meta);
+                        toUpdate.Json = metaJson.Json;
+                    }
+                    else // If a new item needs to be added.
+                    {
+                        meta.DateAdded = DateTime.Now;
+                        var metaJson = await MediaMetaJson.FromMediaMetaAsync(meta);
+                        context.MediaMetaJsons.Add(metaJson);
+                    }
                 }
             }
-            sw.Stop();
-            Debug.WriteLine($"Metas serialized and put in list! Elapsed time: {sw.ElapsedMilliseconds} ms Serialized {metas.Count} objects");
-
-            sw.Reset();
-            sw.Start();
+            
             try
             {
-                await context.SaveChangesAsync();
+                // Time and log saving of MediaMetaJsons.
+                using (new DisposableLogger(DatabaseLog.SaveBegin, (sw) => DatabaseLog.SaveEnd(sw, metas.Count)))
+                {
+                    await context.SaveChangesAsync();
+                }
             }
             catch (Exception e)
             {
-                Debug.WriteLine("Could not save changes to database because of exception:");
-                Debug.WriteLine(e.Message);
-                Debug.WriteLine(e.StackTrace);
+                // Log Exception.
+                LifecycleLog.Exception(e);
             }
-            sw.Stop();
-            Debug.WriteLine($"MediaMetaJsons saved! Elapsed time: {sw.ElapsedMilliseconds} ms Saved {metas.Count} objects");
         }
 
         public static void DeleteAllMetadatas(this MediaMetaDatabaseContext context)
         {
-            var sw = new Stopwatch();
-            sw.Start();
             var count = context.MediaMetaJsons.Count();
-            context.MediaMetaJsons.RemoveRange(context.MediaMetaJsons);
-            context.SaveChanges();
-            sw.Stop();
-            Debug.WriteLine($"MediaMetaJsons deleted! Elapsed time: {sw.ElapsedMilliseconds} ms Deleted {count} objects");
+            // Time and log deletion.
+            using (new DisposableLogger(DatabaseLog.DeleteBegin, (sw) => DatabaseLog.DeleteEnd(sw, count)))
+            {
+                context.MediaMetaJsons.RemoveRange(context.MediaMetaJsons);
+                context.SaveChanges();
+            }
         }
     }
 }

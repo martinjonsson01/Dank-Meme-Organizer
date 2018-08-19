@@ -159,6 +159,16 @@
     <Compile Include="Utility\Extensions.cs" />
     <Compile Include="Utility\FileTypes.cs" />
     <Compile Include="Utility\ImageUtilities.cs" />
+    <Compile Include="Utility\Logging\AuthLog.cs" />
+    <Compile Include="Utility\Logging\DatabaseLog.cs" />
+    <Compile Include="Utility\Logging\DisposableLogger.cs" />
+    <Compile Include="Utility\Logging\EventLog.cs" />
+    <Compile Include="Utility\Logging\GalleryLog.cs" />
+    <Compile Include="Utility\Logging\LifecycleLog.cs" />
+    <Compile Include="Utility\Logging\NavigationLog.cs" />
+    <Compile Include="Utility\Logging\StorageFileEventListener.cs" />
+    <Compile Include="Utility\Logging\UILog.cs" />
+    <Compile Include="Utility\Logging\WebLog.cs" />
     <Compile Include="Utility\MimeTypeMap.cs" />
     <Compile Include="Utility\OnlineUtil.cs" />
     <Compile Include="Utility\QueryUtils.cs" />
@@ -215,6 +225,7 @@
       <SubType>Designer</SubType>
     </AppxManifest>
     <Content Include="Assets\MemeClassifier.onnx" />
+    <Content Include="Assets\Fonts\slant.flf" />
     <None Include="DMO_StoreKey.pfx" />
     <None Include="DMO_TemporaryKey.pfx" />
   </ItemGroup>
@@ -305,6 +316,9 @@
     <Content Include="Assets\Wide310x150Logo.scale-200.png" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="FIGlet.Net">
+      <Version>1.1.1</Version>
+    </PackageReference>
     <PackageReference Include="FirebaseAuthentication.net">
       <Version>3.0.7</Version>
     </PackageReference>

@@ -1,4 +1,5 @@
 ﻿using DMO.Services.SettingsServices;
+using DMO.Utility.Logging;
 using PropertyChanged;
 using System;
 using System.ComponentModel;
@@ -198,9 +199,8 @@ namespace DMO.Controls
                     }
                     catch (Exception e)
                     {
-                        Debug.WriteLine("Exception occured when loading MediaPlayerHover from file:");
-                        Debug.WriteLine(e.Message);
-                        Debug.WriteLine(e.StackTrace);
+                        // Log Exception.
+                        LifecycleLog.Exception(e);
                     }
                 }
             }
@@ -236,9 +236,8 @@ namespace DMO.Controls
                     }
                     catch (Exception e)
                     {
-                        Debug.WriteLine("Exception occured when loading MediaPlayerHover from file:");
-                        Debug.WriteLine(e.Message);
-                        Debug.WriteLine(e.StackTrace);
+                        // Log Exception.
+                        LifecycleLog.Exception(e);
                     }
                 }
             }
@@ -289,7 +288,8 @@ namespace DMO.Controls
 
         private void MediaElement_MediaFailed(object sender, ExceptionRoutedEventArgs e)
         {
-            Debug.WriteLine($"{FileName} : {e}");
+            // TODO: This error shouldn't happen anymore. Fix it.
+            Debug.WriteLine($"{FileName} : {e.ErrorMessage}");
         }
     }
 }

@@ -1,5 +1,6 @@
 ﻿using DMO.Database;
 using DMO.Utility;
+using DMO.Utility.Logging;
 using DMO.Views;
 using System;
 using System.Collections.Generic;
@@ -62,7 +63,8 @@ namespace DMO.ViewModels
                     case StartupTaskState.Disabled:
                         // Task is disabled but can be enabled.
                         var newState = await _startupTask.RequestEnableAsync();
-                        Debug.WriteLine($"Request to enable startup, result = {newState}");
+                        // Log result.
+                        UILog.StartupTaskRequestEnableResult(newState);
                         break;
                     case StartupTaskState.DisabledByUser:
                         // Task is disabled and user must enable it manually.

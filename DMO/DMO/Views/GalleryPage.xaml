@@ -152,7 +152,7 @@
                          RelativePanel.AlignLeftWith="SearchBox"
                          RelativePanel.AlignRightWith="SearchBox"
                          Margin="0, 4, 0, 0"
-                         Visibility="{x:Bind ViewModel.IsEvaluatingImages, Mode=OneWay}"
+                         Visibility="{x:Bind ViewModel.IsProgressVisible, Mode=OneWay}"
                          Value="{x:Bind ViewModel.EvaluationProgress, Mode=OneWay}" />
 
             <CommandBar x:Name="ToolBar"

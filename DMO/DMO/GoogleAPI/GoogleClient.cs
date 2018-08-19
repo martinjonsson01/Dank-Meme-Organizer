@@ -1,13 +1,11 @@
-﻿using DMO.Services.SettingsServices;
-using Firebase.Auth;
-using System;
-using System.Collections.Generic;
+﻿using System;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
+using DMO.Utility.Logging;
 using Windows.Data.Json;
 using Windows.Security.Authentication.Web;
 using Windows.Security.Credentials;
@@ -17,7 +15,7 @@ using Windows.Storage.Streams;
 
 namespace DMO.GoogleAPI
 {
-    
+
     public class GoogleClient
     {
         private enum TokenTypes { AccessToken, RefreshToken }
@@ -59,7 +57,8 @@ namespace DMO.GoogleAPI
         {
             get
             {
-                if (client == null) client = new GoogleClient();
+                if (client == null)
+                    client = new GoogleClient();
                 return client;
             }
         }
@@ -75,7 +74,7 @@ namespace DMO.GoogleAPI
 
             return string.Empty;
         }
-        
+
         public async Task<bool> GetAccessTokenWithoutAuthentication()
         {
             if (DateTimeOffset.UtcNow < TokenLastAccess.AddSeconds(3600))
@@ -86,22 +85,23 @@ namespace DMO.GoogleAPI
             }
             else
             {
-                string token = GetTokenFromVault(TokenTypes.RefreshToken);
+                var token = GetTokenFromVault(TokenTypes.RefreshToken);
                 if (!string.IsNullOrWhiteSpace(token))
                 {
-                    StringContent content = new StringContent($"refresh_token={token}&client_id={ClientID}&grant_type=refresh_token",
+                    var content = new StringContent($"refresh_token={token}&client_id={ClientID}&grant_type=refresh_token",
                                                               Encoding.UTF8, "application/x-www-form-urlencoded");
 
-                    HttpResponseMessage response = await App.HttpClient.PostAsync(TokenEndpoint, content);
-                    string responseString = await response.Content.ReadAsStringAsync();
+                    var response = await App.HttpClient.PostAsync(TokenEndpoint, content);
+                    var responseString = await response.Content.ReadAsStringAsync();
 
                     if (response.IsSuccessStatusCode)
                     {
-                        JsonObject tokens = JsonObject.Parse(responseString);
+                        var tokens = JsonObject.Parse(responseString);
 
                         accessToken = tokens.GetNamedString("access_token");
 
-                        foreach (var item in vault.RetrieveAll().Where((x) => x.Resource == TokenTypes.AccessToken.ToString())) vault.Remove(item);
+                        foreach (var item in vault.RetrieveAll().Where((x) => x.Resource == TokenTypes.AccessToken.ToString()))
+                            vault.Remove(item);
 
                         vault.Add(new PasswordCredential(TokenTypes.AccessToken.ToString(), UserName, accessToken));
                         TokenLastAccess = DateTimeOffset.UtcNow;
@@ -123,12 +123,12 @@ namespace DMO.GoogleAPI
 
         public async Task<bool> SignInAuthenticate()
         {
-            string state = RandomDataBase64(32);
-            string code_verifier = RandomDataBase64(32);
-            string code_challenge = Base64UrlEncodeNoPadding(Sha256(code_verifier));
+            var state = RandomDataBase64(32);
+            var code_verifier = RandomDataBase64(32);
+            var code_challenge = Base64UrlEncodeNoPadding(Sha256(code_verifier));
             const string code_challenge_method = "S256";
 
-            string authString = "https://accounts.google.com/o/oauth2/auth?client_id=" + ClientID;
+            var authString = "https://accounts.google.com/o/oauth2/auth?client_id=" + ClientID;
             authString += "&scope=profile";
             authString += $"&redirect_uri={RedirectURI}";
             authString += $"&state={state}";
@@ -144,7 +144,8 @@ namespace DMO.GoogleAPI
                     await GetAccessToken(receivedData.ResponseData.Substring(receivedData.ResponseData.IndexOf(' ') + 1), state, code_verifier);
                     return true;
                 case WebAuthenticationStatus.ErrorHttp:
-                    Debug.WriteLine($"HTTP error: {receivedData.ResponseErrorDetail}");
+                    // Log HTTP error.
+                    WebLog.HttpError(receivedData.ResponseErrorDetail);
                     return false;
 
                 case WebAuthenticationStatus.UserCancel:
@@ -156,42 +157,47 @@ namespace DMO.GoogleAPI
         private async Task GetAccessToken(string data, string expectedState, string codeVerifier)
         {
             // Parses URI params into a dictionary - ref: http://stackoverflow.com/a/11957114/72176 
-            Dictionary<string, string> queryStringParams = data.Split('&').ToDictionary(c => c.Split('=')[0], c => Uri.UnescapeDataString(c.Split('=')[1]));
+            var queryStringParams = data.Split('&').ToDictionary(c => c.Split('=')[0], c => Uri.UnescapeDataString(c.Split('=')[1]));
 
             if (queryStringParams.ContainsKey("error"))
             {
-                Debug.WriteLine($"OAuth error: {queryStringParams["error"]}.");
+                // Log error.
+                AuthLog.OAuthError(queryStringParams["error"]);
                 return;
             }
 
             if (!queryStringParams.ContainsKey("code") || !queryStringParams.ContainsKey("state"))
             {
-                Debug.WriteLine($"Wrong response {data}");
+                // Log wrong response.
+                AuthLog.WrongResponse(data);
                 return;
             }
 
             if (queryStringParams["state"] != expectedState)
             {
-                Debug.WriteLine($"Invalid state {queryStringParams["state"]}");
+                // Log invalid state.
+                AuthLog.InvalidState(queryStringParams["state"]);
                 return;
             }
 
-            StringContent content = new StringContent($"code={queryStringParams["code"]}&redirect_uri={Uri.EscapeDataString(RedirectURI)}&client_id={ClientID}&code_verifier={codeVerifier}&grant_type=authorization_code",
+            var content = new StringContent($"code={queryStringParams["code"]}&redirect_uri={Uri.EscapeDataString(RedirectURI)}&client_id={ClientID}&code_verifier={codeVerifier}&grant_type=authorization_code",
                                                       Encoding.UTF8, "application/x-www-form-urlencoded");
 
-            HttpResponseMessage response = await App.HttpClient.PostAsync(TokenEndpoint, content);
-            string responseString = await response.Content.ReadAsStringAsync();
+            var response = await App.HttpClient.PostAsync(TokenEndpoint, content);
+            var responseString = await response.Content.ReadAsStringAsync();
 
             if (!response.IsSuccessStatusCode)
             {
-                Debug.WriteLine("Authorization code exchange failed.");
+                // Log exchange fail.
+                AuthLog.CodeExhangeFailed();
                 return;
             }
 
-            JsonObject tokens = JsonObject.Parse(responseString);
+            var tokens = JsonObject.Parse(responseString);
             accessToken = tokens.GetNamedString("access_token");
 
-            foreach (var item in vault.RetrieveAll().Where((x) => x.Resource == TokenTypes.AccessToken.ToString() || x.Resource == TokenTypes.RefreshToken.ToString())) vault.Remove(item);
+            foreach (var item in vault.RetrieveAll().Where((x) => x.Resource == TokenTypes.AccessToken.ToString() || x.Resource == TokenTypes.RefreshToken.ToString()))
+                vault.Remove(item);
 
             vault.Add(new PasswordCredential(TokenTypes.AccessToken.ToString(), UserName, accessToken));
             vault.Add(new PasswordCredential(TokenTypes.RefreshToken.ToString(), UserName, tokens.GetNamedString("refresh_token")));
@@ -201,20 +207,20 @@ namespace DMO.GoogleAPI
 
         private string RandomDataBase64(uint length)
         {
-            IBuffer buffer = CryptographicBuffer.GenerateRandom(length);
+            var buffer = CryptographicBuffer.GenerateRandom(length);
             return Base64UrlEncodeNoPadding(buffer);
         }
 
         private IBuffer Sha256(string inputStirng)
         {
-            HashAlgorithmProvider sha = HashAlgorithmProvider.OpenAlgorithm(HashAlgorithmNames.Sha256);
-            IBuffer buff = CryptographicBuffer.ConvertStringToBinary(inputStirng, BinaryStringEncoding.Utf8);
+            var sha = HashAlgorithmProvider.OpenAlgorithm(HashAlgorithmNames.Sha256);
+            var buff = CryptographicBuffer.ConvertStringToBinary(inputStirng, BinaryStringEncoding.Utf8);
             return sha.HashData(buff);
         }
 
         private string Base64UrlEncodeNoPadding(IBuffer buffer)
         {
-            string base64 = CryptographicBuffer.EncodeToBase64String(buffer);
+            var base64 = CryptographicBuffer.EncodeToBase64String(buffer);
 
             base64 = base64.Replace("+", "-");
             base64 = base64.Replace("/", "_");

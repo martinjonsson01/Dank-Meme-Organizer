@@ -1,10 +1,11 @@
-﻿using DMO.Models;
-using DMO.Utility;
-using DMO.ViewModels;
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Linq;
+using DMO.Utility;
+using DMO.Utility.Logging;
+using DMO.ViewModels;
 using Windows.Foundation;
+using Windows.Storage;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Input;
@@ -29,30 +30,33 @@ namespace DMO.Views
 
         public DetailsPage()
         {
-            this.InitializeComponent();
+            InitializeComponent();
         }
 
         protected override async void OnNavigatedTo(NavigationEventArgs e)
         {
             base.OnNavigatedTo(e);
 
+            var bitmapLoadLogger = new DisposableLogger(UILog.BitmapLoadBegin, UILog.BitmapLoadEnd);
+
             #region Stuff from ViewModel
 
             var vm = DataContext as DetailsPageViewModel;
 
-            Debug.WriteLine($"{DateTime.Now.Second}:{DateTime.Now.Millisecond} Navigated to {nameof(DetailsPageViewModel)}.");
-
             vm.MediaDataKey = e.Parameter?.ToString();
 
-            var SerializationService = Template10.Services.SerializationService.SerializationService.Json;
-            var mediaFile = App.Files[SerializationService.Deserialize(vm.MediaDataKey)?.ToString()];
+            StorageFile mediaFile;
+            // Log deserialization of media file.
+            using (new DisposableLogger(DatabaseLog.DeserializationBegin, (sw) => DatabaseLog.DeserializationEnd(sw, 1)))
+            {
+                var SerializationService = Template10.Services.SerializationService.SerializationService.Json;
+                mediaFile = App.Files[SerializationService.Deserialize(vm.MediaDataKey)?.ToString()];
+            }
 
-            Debug.WriteLine($"{DateTime.Now.Second}:{DateTime.Now.Millisecond} Media file loaded.");
-
-            MediaData mediaData = App.Gallery.GetMediaDataFromPath(mediaFile.Path, App.Gallery.MediaDatas);
+            var mediaData = App.Gallery.GetMediaDataFromPath(mediaFile.Path, App.Gallery.MediaDatas);
 
             vm.MediaData = mediaData;
-            
+
             #endregion
 
             Frame.Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 0, 0, 0));
@@ -87,7 +91,7 @@ namespace DMO.Views
                 imageAnimation.Completed += (sender, arg) => _animFinished = true;
                 // Start connected animation.
                 imageAnimation.TryStart(GenericMediaDataElement.ImageElement);
-                
+
                 // Set up image loaded action.
                 GenericMediaDataElement.ImageElement.ImageLoadedAction = () =>
                 {
@@ -95,7 +99,8 @@ namespace DMO.Views
                     App.Current.NavigationService.Frame.SizeChanged += MediaScrollViewer_SizeChanged;
                     MediaScrollViewer.RegisterPropertyChangedCallback(ScrollViewer.ZoomFactorProperty, ScrollViewerZoomFactorChanged);
 
-                    Debug.WriteLine($"{DateTime.Now.Second}:{DateTime.Now.Millisecond} Detailed image loaded.");
+                    // Log bitmap load.
+                    bitmapLoadLogger.Dispose();
 
                     imageAnimation.Completed += (anim, obj) => vm.SearchForHigherResolutionOnlineAsync();
                 };
@@ -112,7 +117,10 @@ namespace DMO.Views
                     ZoomToFit();
                     App.Current.NavigationService.Frame.SizeChanged += MediaScrollViewer_SizeChanged;
                     MediaScrollViewer.RegisterPropertyChangedCallback(ScrollViewer.ZoomFactorProperty, ScrollViewerZoomFactorChanged);
-                    
+
+                    // Log bitmap load.
+                    bitmapLoadLogger.Dispose();
+
                     gifAnimation.Completed += (anim, obj) => vm.SearchForHigherResolutionOnlineAsync();
                 };
             }
@@ -128,6 +136,9 @@ namespace DMO.Views
                     ZoomToFit();
                     App.Current.NavigationService.Frame.SizeChanged += MediaScrollViewer_SizeChanged;
                     MediaScrollViewer.RegisterPropertyChangedCallback(ScrollViewer.ZoomFactorProperty, ScrollViewerZoomFactorChanged);
+
+                    // Log bitmap load.
+                    bitmapLoadLogger.Dispose();
                 };
                 GenericMediaDataElement.VideoElement.Detailed = true;
             }
@@ -180,7 +191,8 @@ namespace DMO.Views
             var needsToBeResized = (vm.MediaData.Meta.Width > MediaScrollViewer.ViewportWidth) || (vm.MediaData.Meta.Height > MediaScrollViewer.ViewportHeight);
 
             // Don't resize if not necessary.
-            if (!needsToBeResized) return;
+            if (!needsToBeResized)
+                return;
 
             var mediaAspect = MediaViewBox.ActualWidth / MediaViewBox.ActualHeight;
             var viewportAspect = MediaScrollViewer.ViewportWidth / MediaScrollViewer.ViewportHeight;
@@ -235,11 +247,12 @@ namespace DMO.Views
         private void GenericMediaDataElement_ManipulationDelta(object sender, ManipulationDeltaRoutedEventArgs e)
         {
             // Don't allow user to pan if no zoom has been applied.
-            if (MediaScrollViewer.ZoomFactor == 1.0f) return;
+            if (MediaScrollViewer.ZoomFactor == 1.0f)
+                return;
 
             MediaTransform.TranslateX += e.Delta.Translation.X / MediaScrollViewer.ZoomFactor;
             MediaTransform.TranslateY += e.Delta.Translation.Y / MediaScrollViewer.ZoomFactor;
-            
+
             var elementBounds = MediaTransform.TransformBounds(new Rect(0.0, 0.0, GenericMediaDataElement.ActualWidth, GenericMediaDataElement.ActualHeight));
             var containerRect = new Rect(0.0, 0.0, MediaScrollViewer.ViewportWidth, MediaScrollViewer.ViewportHeight);
             var isPartiallyVisible = containerRect.Contains(new Point(elementBounds.Left, elementBounds.Top)) || containerRect.Contains(new Point(elementBounds.Right, elementBounds.Bottom));

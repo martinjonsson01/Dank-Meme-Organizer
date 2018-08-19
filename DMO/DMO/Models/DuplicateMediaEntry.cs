@@ -1,4 +1,5 @@
 ﻿using DMO.Utility;
+using DMO.Utility.Logging;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -43,9 +44,8 @@ namespace DMO.Models
                 }
                 catch (Exception e)
                 {
-                    Debug.WriteLine("Could not open folder in explorer due to exception:");
-                    Debug.WriteLine(e.Message);
-                    Debug.WriteLine(e.StackTrace);
+                    // Log Exception.
+                    LifecycleLog.Exception(e);
                 }
             }));
 

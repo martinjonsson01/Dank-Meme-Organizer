@@ -6,6 +6,7 @@ using System.Linq;
 using System.Net;
 using System.Text;
 using System.Threading.Tasks;
+using DMO.Utility.Logging;
 using Windows.Networking.BackgroundTransfer;
 using Windows.Storage;
 
@@ -15,16 +16,15 @@ namespace DMO.Utility
     {
         public static async Task<long> GetContentSizeAsync(Uri uri)
         {
-            var sw = new Stopwatch();
-            sw.Start();
-
-            var req = WebRequest.Create("http://example.com/") as HttpWebRequest;
-            req.Method = "HEAD";
-            using (var resp = await req.GetResponseAsync() as HttpWebResponse)
+            // Time and log getting of online file size.
+            using (new DisposableLogger(WebLog.GetOnlineFileSizeBegin, WebLog.GetOnlineFileSizeEnd))
             {
-                sw.Stop();
-                Debug.WriteLine($"Got online file size without downloading entire file! Took {sw.ElapsedMilliseconds} ms");
-                return resp.ContentLength;
+                var req = WebRequest.Create("http://example.com/") as HttpWebRequest;
+                req.Method = "HEAD";
+                using (var resp = await req.GetResponseAsync() as HttpWebResponse)
+                {
+                    return resp.ContentLength;
+                }
             }
         }
 

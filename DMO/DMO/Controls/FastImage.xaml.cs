@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading.Tasks;
+using DMO.Utility.Logging;
 using Template10.Mvvm;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
@@ -166,9 +167,8 @@ namespace DMO.Controls
                     }
                     catch (Exception e)
                     {
-                        Debug.WriteLine($"Exception occured when trying to set bitmap source for file named {mediaFile?.Name ?? "null"}:");
-                        Debug.WriteLine(e.Message);
-                        Debug.WriteLine(e.StackTrace);
+                        // Log Exception.
+                        LifecycleLog.Exception(e);
                     }
                 }
             }

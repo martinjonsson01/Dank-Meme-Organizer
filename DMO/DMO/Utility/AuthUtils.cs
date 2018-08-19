@@ -48,8 +48,6 @@ namespace DMO.Utility
                 code_challenge,
                 code_challenge_method);
             
-            Debug.WriteLine("Created authorization request URI: " + authorizationRequest);
-
             // Return the Authorization URI.
             return new Uri(authorizationRequest);
         }

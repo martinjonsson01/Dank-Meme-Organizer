@@ -1,27 +1,11 @@
-﻿using DMO.Extensions;
-using DMO.Models;
-using DMO.ViewModels;
-using System;
-using System.Collections.Generic;
+﻿using System;
 using System.Diagnostics;
-using System.Drawing;
-using System.IO;
-using System.Linq;
-using System.Runtime.InteropServices.WindowsRuntime;
-using System.Threading.Tasks;
-using Template10.Services.SerializationService;
-using Windows.Foundation;
-using Windows.Foundation.Collections;
-using Windows.UI.Composition;
-using Windows.UI.Xaml;
+using DMO.Utility.Logging;
+using DMO.ViewModels;
+using Windows.Storage;
 using Windows.UI.Xaml.Controls;
-using Windows.UI.Xaml.Controls.Primitives;
-using Windows.UI.Xaml.Data;
-using Windows.UI.Xaml.Hosting;
-using Windows.UI.Xaml.Input;
 using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Media.Animation;
-using Windows.UI.Xaml.Media.Imaging;
 using Windows.UI.Xaml.Navigation;
 
 // The Blank Page item template is documented at https://go.microsoft.com/fwlink/?LinkId=234238
@@ -41,7 +25,7 @@ namespace DMO.Views
 
         public AlternateDetailsPage()
         {
-            this.InitializeComponent();
+            InitializeComponent();
         }
 
         protected override async void OnNavigatedTo(NavigationEventArgs e)
@@ -51,17 +35,18 @@ namespace DMO.Views
             #region Stuff from ViewModel
 
             var vm = DataContext as AlternateDetailsPageViewModel;
-
-            Debug.WriteLine($"{DateTime.Now.Second}:{DateTime.Now.Millisecond} Navigated to {nameof(DetailsPageViewModel)}.");
-
+            
             vm.MediaDataKey = e.Parameter?.ToString();
 
-            var SerializationService = Template10.Services.SerializationService.SerializationService.Json;
-            var mediaFile = App.Files[SerializationService.Deserialize(vm.MediaDataKey)?.ToString()];
+            StorageFile mediaFile;
+            // Log deserialization of media file.
+            using (new DisposableLogger(DatabaseLog.DeserializationBegin, (sw) => DatabaseLog.DeserializationEnd(sw, 1)))
+            {
+                var SerializationService = Template10.Services.SerializationService.SerializationService.Json;
+                mediaFile = App.Files[SerializationService.Deserialize(vm.MediaDataKey)?.ToString()];
+            }
 
-            Debug.WriteLine($"{DateTime.Now.Second}:{DateTime.Now.Millisecond} Media file loaded.");
-
-            MediaData mediaData = App.Gallery.GetMediaDataFromPath(mediaFile.Path, App.Gallery.MediaDatas);
+            var mediaData = App.Gallery.GetMediaDataFromPath(mediaFile.Path, App.Gallery.MediaDatas);
 
             vm.MediaData = mediaData;
 
@@ -90,7 +75,7 @@ namespace DMO.Views
                 imageAnimation.Completed += (sender, arg) => _animFinished = true;
                 ImageElement.Loaded += (s, o) =>
                 {
-                    Debug.WriteLine($"{DateTime.Now.Second}:{DateTime.Now.Millisecond} Detailed image loaded.");
+                    DeasdasdasdLine($"{DateTime.Now.Second}:{DateTime.Now.Millisecond} Detailed image loaded.");
                     imageAnimation.TryStart(ImageElement);
 
                     imageAnimation.Completed += (anim, obj) => vm.SearchForHigherResolutionOnlineAsync();

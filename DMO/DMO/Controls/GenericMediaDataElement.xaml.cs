@@ -1,4 +1,5 @@
 ﻿using DMO.Models;
+using DMO.Utility.Logging;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -83,23 +84,12 @@ namespace DMO.Controls
             var image = ImageElement.FindName("Media") as Image;
             var imageBitmap = new BitmapImage();
             image.Source = imageBitmap;
-            var sw = new Stopwatch();
-            sw.Start();
-            // Open stream to file and apply as bitmap source.
-            await imageBitmap.SetSourceAsync(await mediaData.MediaFile.OpenReadAsync());
-            sw.Stop();
-            Debug.WriteLine($"Bitmap loaded. Took {sw.ElapsedMilliseconds} ms");
-
-            // Update metadata about image size.
-            /*mediaData.Meta.Height = imageBitmap.PixelHeight;
-            mediaData.Meta.Width = imageBitmap.PixelWidth;
-            mediaData.Meta.Height = imageBitmap.PixelHeight;
-            mediaData.Meta.Width = imageBitmap.PixelWidth;
-            ImageMediaData.Meta.Height = imageBitmap.PixelHeight;
-            ImageMediaData.Meta.Width = imageBitmap.PixelWidth;
-            RaisePropertyChanged(nameof(ImageMediaData.Meta));*/
-
-            Debug.WriteLine($"{DateTime.Now.Second}:{DateTime.Now.Millisecond} Media data loaded.");
+            
+            using (new DisposableLogger(UILog.BitmapLoadBegin, UILog.BitmapLoadEnd))
+            {
+                // Open stream to file and apply as bitmap source.
+                await imageBitmap.SetSourceAsync(await mediaData.MediaFile.OpenReadAsync());
+            }
         }
         
     }

@@ -31,6 +31,9 @@ using DMO_Model.GoogleAPI.Models;
 using Windows.UI.Core;
 using Windows.UI.Xaml.Navigation;
 using Windows.ApplicationModel.ExtendedExecution;
+using DMO.Utility.Logging;
+using System.Diagnostics.Tracing;
+using DMO.Utility;
 
 namespace DMO
 {
@@ -78,31 +81,49 @@ namespace DMO
 
             #endregion
 
+            // Initialize logger.
+            var verboseListener = new StorageFileEventListener("verbose");
+            var informationListener = new StorageFileEventListener("info");
+            // Enable events for loggers.
+            informationListener.EnableEvents(EventLog.Log, EventLevel.Informational);
+            informationListener.EnableEvents(EventLog.Log, EventLevel.Error);
+            informationListener.EnableEvents(EventLog.Log, EventLevel.Critical);
+            verboseListener.EnableEvents(EventLog.Log, EventLevel.LogAlways);
+
             // Clear FutureAccessList as it has a max limit of 1000.
             ClearFutureAccessList();
+
+            // Log startup.
+            LifecycleLog.AppStarting();
         }
 
         private async Task SetUpAndLoadFromDatabase()
         {
             using (var context = new MediaMetaDatabaseContext())
             {
-                // TODO: WARNING REMOVE THIS. IT CLEARS AND RESETS THE ENTIRE DATABASE.
-                //await context.Database.EnsureDeletedAsync();
-
                 // Creates and/or migrates the database if it does not exist/is not up to date.
                 await context.Database.MigrateAsync();
 
+                // Fetch metadatas from database.
                 DatabaseMetaDatas = await context.GetAllMetadatasAsync();
-                foreach (var meta in DatabaseMetaDatas)
+
+                using(new DisposableLogger(DatabaseLog.CreateMediaDatasBegin, DatabaseLog.CreateMediaDatasEnd))
                 {
-                    var mediaData = await MediaData.CreateFromMediaMetadataAsync(meta);
-                    MediaDatas.Add(mediaData);
+                    // Turn metadatas into mediadatas.
+                    foreach (var meta in DatabaseMetaDatas)
+                    {
+                        var mediaData = await MediaData.CreateFromMediaMetadataAsync(meta);
+                        MediaDatas.Add(mediaData);
+                    }
                 }
             }
         }
 
         public override Task OnPrelaunchAsync(IActivatedEventArgs args, out bool runOnStartAsync)
         {
+            // Log prelaunch.
+            LifecycleLog.AppPrelaunch();
+
             runOnStartAsync = true;
             return Task.CompletedTask;
         }
@@ -132,16 +153,14 @@ namespace DMO
                     // Request extension. This is done so that if the application can finish loading data
                     // from database when prelaunched or minimized (suspended prematurely).
                     var result = await session.RequestExtensionAsync();
-                    Debug.WriteLine($"Extension request returned result {result}");
+                    LifecycleLog.ExtensionRequestResult(result);
 
                     // Set up database.
-                    Debug.WriteLine("Setting up database...");
-                    var sw = new Stopwatch();
-                    sw.Start();
-                    if (!(args.PreviousExecutionState == ApplicationExecutionState.Suspended && MediaDatas.Count > 0))
-                        await SetUpAndLoadFromDatabase();
-                    sw.Stop();
-                    Debug.WriteLine($"Database setup! Elapsed time: {sw.ElapsedMilliseconds} ms");
+                    using (new DisposableLogger(DatabaseLog.LoadBegin, DatabaseLog.LoadEnd))
+                    {
+                        if (!(args.PreviousExecutionState == ApplicationExecutionState.Suspended && MediaDatas.Count > 0))
+                            await SetUpAndLoadFromDatabase();
+                    }
 
                     // If MediaDatas have been loaded from database then open GalleryPage using those.
                     if (MediaDatas.Count > 0)
@@ -166,6 +185,9 @@ namespace DMO
 
         public override Task OnSuspendingAsync(object s, SuspendingEventArgs e, bool prelaunchActivated)
         {
+            // Log suspension.
+            LifecycleLog.AppSuspending();
+
             return base.OnSuspendingAsync(s, e, prelaunchActivated);
         }
         
@@ -177,9 +199,8 @@ namespace DMO
 
             frame.NavigationFailed += (obj, e) =>
             {
-                Debug.WriteLine($"Error occured when navigating from {e.SourcePageType.Name}. Navigation failed.");
-                Debug.WriteLine(e.Exception.Message);
-                Debug.WriteLine(e.Exception.StackTrace);
+                // Log NavigationException.
+                LifecycleLog.NavigationException(e);
                 // Set handled to true so the application doesn't crash.
                 e.Handled = true;
             };
@@ -198,9 +219,8 @@ namespace DMO
                     }
                     catch (Exception e)
                     {
-                        Debug.WriteLine("Error occured when navigating. Navigation failed.");
-                        Debug.WriteLine(e.Message);
-                        Debug.WriteLine(e.StackTrace);
+                        // Log Exception.
+                        LifecycleLog.Exception(e);
                     }
                 },
                 0, CoreDispatcherPriority.Normal);
