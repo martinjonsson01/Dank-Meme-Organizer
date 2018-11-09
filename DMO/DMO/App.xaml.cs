@@ -179,8 +179,10 @@ namespace DMO
                     var accessStatus = BackgroundExecutionManager.GetAccessStatus();
                     if (accessStatus != BackgroundAccessStatus.AlwaysAllowed)
                     {
-                        // Request background access.
-                        var accessGranted = await BackgroundExecutionManager.RequestAccessKindAsync(BackgroundAccessRequestKind.AlwaysAllowed, "To allow faster launch performance");
+						// Request background access.
+						var accessGranted = await BackgroundExecutionManager.RequestAccessAsync();
+						// TODO: This line below prompts the user, which is better but it requires Windows Version 1803 which is too new, so uncomment this in a few versions.
+                        //var accessGranted = await BackgroundExecutionManager.RequestAccessKindAsync(BackgroundAccessRequestKind.AlwaysAllowed, "To allow faster launch performance");
                     }
                     // Request extension. This is done so that if the application can finish loading data
                     // from database when prelaunched or minimized (suspended prematurely).

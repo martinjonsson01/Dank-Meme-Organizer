@@ -1,4 +1,5 @@
-﻿using System;
+﻿using DMO.Services.SettingsServices;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.Tracing;
@@ -112,7 +113,7 @@ namespace DMO.Utility.Logging
                 {
                     _semaphoreSlim.Release();
                 }
-            }, TimeSpan.FromSeconds(5));
+            }, TimeSpan.FromMilliseconds(100));
         }
 
         protected override async void OnEventWritten(EventWrittenEventArgs eventData)

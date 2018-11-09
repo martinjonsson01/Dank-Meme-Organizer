@@ -11,6 +11,8 @@ using System.Threading.Tasks;
 using Template10.Common;
 using Template10.Mvvm;
 using Windows.ApplicationModel;
+using Windows.Storage;
+using Windows.System;
 using Windows.UI.Popups;
 using Windows.UI.Xaml;
 
@@ -54,8 +56,8 @@ namespace DMO.ViewModels
                 var nav = WindowWrapper.Current().NavigationServices.FirstOrDefault();
                 await nav.NavigateAsync(typeof(FolderSelectPage));
             }));
-
-        DelegateCommand _enableStartupTaskCommand;
+		
+		DelegateCommand _enableStartupTaskCommand;
         public DelegateCommand EnableStartupTaskCommand
             => _enableStartupTaskCommand ?? (_enableStartupTaskCommand = new DelegateCommand(async () =>
             {
@@ -99,7 +101,16 @@ namespace DMO.ViewModels
                 RaisePropertyChanged(nameof(StartupTaskState));
             }));
 
-        public SettingsPartViewModel()
+		DelegateCommand _openLogFolderCommand;
+		public DelegateCommand OpenLogFolderCommand
+			=> _openLogFolderCommand ?? (_openLogFolderCommand = new DelegateCommand(async () =>
+			{
+				var logFolder = await ApplicationData.Current.LocalFolder.GetFolderAsync("Logs");
+
+				await Launcher.LaunchFolderAsync(logFolder);
+			}));
+
+		public SettingsPartViewModel()
         {
             if (Windows.ApplicationModel.DesignMode.DesignModeEnabled)
             {

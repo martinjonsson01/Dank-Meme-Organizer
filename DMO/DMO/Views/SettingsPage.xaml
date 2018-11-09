@@ -79,7 +79,13 @@
 
                         </StackPanel>
 
-                    </RelativePanel>
+						<Button x:Name="OpenLogFolderButton"
+								Margin="0, 32, 0, 0"
+								Command="{x:Bind ViewModel.SettingsPartViewModel.OpenLogFolderCommand, Mode=OneWay}"
+								Content="Open Log folder"
+								RelativePanel.Below="MediaLoadBatchSizeSlider" />
+
+					</RelativePanel>
 
                 </ScrollViewer>
             </PivotItem>
