@@ -17,8 +17,8 @@
         <converters:TimeSpanDurationConverter x:Key="TimeSpanDurationConverter"/>
 
     </UserControl.Resources>
-    
-    <Grid>
+
+    <Grid CacheMode="BitmapCache">
 
         <MediaElement x:Name="MediaElement"
                       x:Load="{x:Bind IsLoaded, Mode=OneWay}"

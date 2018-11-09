@@ -15,7 +15,7 @@
       xmlns:behaviours="using:DMO.Behaviours"
       xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
       xmlns:vm="using:DMO.ViewModels" mc:Ignorable="d"
-      NavigationCacheMode="Enabled">
+      NavigationCacheMode="Required">
 
     <Page.DataContext>
         <vm:GalleryPageViewModel x:Name="ViewModel" />
@@ -152,7 +152,7 @@
                          RelativePanel.AlignLeftWith="SearchBox"
                          RelativePanel.AlignRightWith="SearchBox"
                          Margin="0, 4, 0, 0"
-                         Visibility="{x:Bind ViewModel.IsEvaluatingImages, Mode=OneWay}"
+                         Visibility="{x:Bind ViewModel.IsProgressVisible, Mode=OneWay}"
                          Value="{x:Bind ViewModel.EvaluationProgress, Mode=OneWay}" />
 
             <CommandBar x:Name="ToolBar"
@@ -209,7 +209,7 @@
                   ItemClick="{x:Bind ViewModel.ItemClicked}"
                   Loaded="{x:Bind ViewModel.GridViewLoaded}"
                   Margin="8, 0, 8, 8"
-                  SelectionMode="Extended"
+                  SelectionMode="None"
                   CanReorderItems="True"
                   CanDragItems="True"
                   AllowDrop="True"

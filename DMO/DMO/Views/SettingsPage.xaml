@@ -40,7 +40,7 @@
 
                         <ToggleSwitch x:Name="ToggleSwitchAutoplayGifs"
                                       Header="Autoplay Gifs"
-                                      IsOn="{Binding AutoPlayGifs, Mode=TwoWay}"
+                                      IsOn="{x:Bind ViewModel.SettingsPartViewModel.AutoPlayGifs, Mode=TwoWay}"
                                       OffContent="Do not autoplay gifs"
                                       OnContent="Autoplay gifs"
                                       RelativePanel.AlignLeftWithPanel="True"
@@ -60,6 +60,24 @@
                                 Content="{x:Bind ViewModel.SettingsPartViewModel.StartupTaskState, Mode=OneWay, Converter={StaticResource StartupTaskStateToButtonTextConverter}, FallbackValue=Placeholder}"
                                 RelativePanel.AlignLeftWithPanel="True"
                                 RelativePanel.Below="FolderChangeButton" />
+
+                        <StackPanel x:Name="MediaLoadBatchSizeSlider" 
+                                    Orientation="Horizontal"
+                                    Margin="0, 32, 0, 0"
+                                    RelativePanel.Below="EnableStartupTaskButton">
+                            
+                            <Slider Minimum="5"
+                                    Maximum="500"
+                                    StepFrequency="5"
+                                    Header="Meme loading batch size" 
+                                    ToolTipService.ToolTip="How many memes to load at a time. Larger values mean longer loading times, smaller values mean less items loaded."
+                                    Value="{x:Bind ViewModel.SettingsPartViewModel.MediaLoadBatchSize, Mode=TwoWay}"/>
+
+                            <TextBlock Text="{x:Bind ViewModel.SettingsPartViewModel.MediaLoadBatchSize, Mode=OneWay}"
+                                       VerticalAlignment="Center"
+                                       Margin="32"/>
+
+                        </StackPanel>
 
                     </RelativePanel>
 

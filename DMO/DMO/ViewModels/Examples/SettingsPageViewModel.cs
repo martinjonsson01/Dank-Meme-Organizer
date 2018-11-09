@@ -54,7 +54,7 @@ namespace DMO.Examples.ViewModels
 
         DelegateCommand _ShowBusyCommand;
         public DelegateCommand ShowBusyCommand
-            => _ShowBusyCommand ?? (_ShowBusyCommand = new DelegateCommand(async () =>
+            => _ShowBusyCommand ?? (_ShowBusyCommand = new DelegateCommand(() =>
             {
                 /*Views.AuthModal.ShowAuth(true, _BusyText);
                 await Task.Delay(5000);

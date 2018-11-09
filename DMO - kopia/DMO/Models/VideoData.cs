@@ -40,9 +40,31 @@ namespace DMO.Models
             var mediaClip = await MediaClip.CreateFromFileAsync(MediaFile);
             var mediaComposition = new MediaComposition();
             mediaComposition.Clips.Add(mediaClip);
+
+            // Get thumbnail stream from frame in the middle of the video.
             var halfDuration = mediaComposition.Duration / 2;
-            return await mediaComposition.GetThumbnailAsync(
+            var thumbnailStream = await mediaComposition.GetThumbnailAsync(
                 halfDuration, 0, 0, VideoFramePrecision.NearestKeyFrame);
+
+            // Schedule the loading of the dimensions of the video on main thread when it is idle.
+            await App.Current.NavigationService.Frame.Dispatcher.RunIdleAsync((args) => LoadDimensions(thumbnailStream));
+
+            return thumbnailStream;
+        }
+
+        private async void LoadDimensions(IRandomAccessStream thumbnailStream)
+        {
+            // Turn stream into bitmap and get width and height.
+            var bitmap = new BitmapImage();
+            await bitmap.SetSourceAsync(thumbnailStream);
+            // Get mediaData from gallery.
+            var mediaData = App.Gallery.MediaDatas.FirstOrDefault(data => data.Meta.MediaFilePath.Equals(MediaFile.Path));
+            if (mediaData != null)
+            {
+                // Update meta height and width.
+                mediaData.Meta.Height = bitmap.PixelHeight;
+                mediaData.Meta.Width = bitmap.PixelWidth;
+            }
         }
     }
 }

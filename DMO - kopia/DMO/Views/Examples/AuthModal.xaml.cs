@@ -1,21 +1,13 @@
-﻿using DMO.GoogleAPI;
-using DMO.Services.SettingsServices;
-using DMO.Utility;
-using Firebase.Database.Query;
-using Newtonsoft.Json;
-using System;
-using System.ComponentModel;
-using System.Diagnostics;
-using System.Net;
-using System.Runtime.CompilerServices;
-using System.Security;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
+using DMO.GoogleAPI;
+using DMO.Utility.Logging;
 using Template10.Common;
 using Template10.Controls;
-using Windows.Security.Authentication.Web;
+using Windows.UI;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Input;
+using Windows.UI.Xaml.Media;
 
 namespace DMO.Views
 {
@@ -27,13 +19,14 @@ namespace DMO.Views
         {
             InitializeComponent();
         }
-        
+
         // hide and show busy dialog
         public static void ShowAuth(bool show, TaskCompletionSource<string> taskCompletionSource = null)
         {
             WindowWrapper.Current().Dispatcher.Dispatch(() =>
             {
                 var modal = Window.Current.Content as ModalDialog;
+                modal.ModalBackground = new SolidColorBrush(Colors.Black) { Opacity = .5 };
                 if (!(modal.ModalContent is AuthModal view))
                     modal.ModalContent = view = new AuthModal();
                 modal.IsModal = show;
@@ -53,18 +46,18 @@ namespace DMO.Views
         private async void Auth_Tapped(object sender, TappedRoutedEventArgs e)
         {
             SignInButton.IsEnabled = false;
-            var sw = new Stopwatch();
-            sw.Start();
-            if (await GoogleClient.Client.SignInAuthenticate())
+            var signInAuthResult = false;
+            // Time and log signing in and authentication.
+            using (new DisposableLogger(() => AuthLog.GetAccessTokenBegin("Google"), (sw) => AuthLog.GetAccessTokenEnd(sw, "Google", signInAuthResult)))
             {
-                sw.Stop();
-                Debug.WriteLine($"Google OAuth completed! Elapsed time: {sw.ElapsedMilliseconds} ms Token aquired: {FirebaseClient.accessToken}");
-                
+                signInAuthResult = await GoogleClient.Client.SignInAuthenticate();
+            }
+
+            if (signInAuthResult)
+            {
                 if (_authCompletionSource.TrySetResult(GoogleClient.accessToken))
                     ShowAuth(false);
             }
-            if (sw.IsRunning)
-                sw.Stop();
             SignInButton.IsEnabled = true;
         }
 

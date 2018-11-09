@@ -36,7 +36,19 @@ namespace DMO.Utility
         /// <param name="folder">The folder to download the file to.</param>
         public static async void DownloadFile(Uri uri, StorageFolder folder)
         {
-            await DownloadFileAsync(uri, folder);
+            await DownloadFileAsync(uri, uri.Segments.LastOrDefault() ?? "default", folder);
+        }
+
+        /// <summary>
+        /// Downloads a file.
+        /// Note: Returns before download is complete.
+        /// </summary>
+        /// <param name="uri">The web-address to download the file from.</param>
+        /// <param name="fileName">The name of the file to save to.</param>
+        /// <param name="folder">The folder to download the file to.</param>
+        public static async void DownloadFile(Uri uri, string fileName, StorageFolder folder)
+        {
+            await DownloadFileAsync(uri, fileName, folder);
         }
 
         /// <summary>
@@ -46,11 +58,21 @@ namespace DMO.Utility
         /// <param name="folder">The folder to download the file to.</param>
         public static async Task<StorageFile> DownloadFileAsync(Uri uri, StorageFolder folder)
         {
+            return await DownloadFileAsync(uri, uri.Segments.LastOrDefault() ?? "default", folder);
+        }
+
+        /// <summary>
+        /// Downloads a file asynchronously.
+        /// </summary>
+        /// <param name="uri">The web-address to download the file from.</param>
+        /// <param name="fileName">The name of the file to save to.</param>
+        /// <param name="folder">The folder to download the file to.</param>
+        public static async Task<StorageFile> DownloadFileAsync(Uri uri, string fileName, StorageFolder folder)
+        {
             // Create download file path.
-            var fileName = uri.Segments.Last();
             var downloadFilePath = Path.Combine(folder.Path, fileName);
             // Create download file.
-            var downloadFile = await folder.CreateFileAsync(uri.Segments.Last(), CreationCollisionOption.GenerateUniqueName);
+            var downloadFile = await folder.CreateFileAsync(fileName, CreationCollisionOption.GenerateUniqueName);
             // Download file.
             var downloader = new BackgroundDownloader();
             var downloadOperation = downloader.CreateDownload(uri, downloadFile);

@@ -1,33 +1,22 @@
-﻿using DMO.Models;
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Template10.Services.NavigationService;
-using Windows.ApplicationModel.Core;
-using Windows.Media.Core;
-using Windows.Storage;
-using Windows.UI.Xaml.Controls;
-using Windows.UI.Xaml.Media.Imaging;
-using Windows.UI.Xaml.Navigation;
-using Microsoft.Toolkit.Uwp.UI;
-using DMO.Services.SettingsServices;
-using System.Net.Http;
-using DMO.Utility;
 using System.IO;
-using System.Net.Http.Headers;
-using System.Diagnostics;
-using Template10.Mvvm;
-using DMO.Views;
-using Windows.UI.Xaml;
-using Windows.UI.Xaml.Media.Animation;
-using DMO.Controls;
-using DMO.GoogleAPI;
-using DMO.Database;
+using System.Linq;
 using System.Threading;
-using Newtonsoft.Json;
+using System.Threading.Tasks;
+using DMO.Models;
+using DMO.Services.SettingsServices;
+using DMO.Utility;
+using DMO.Utility.Logging;
+using DMO.Views;
+using Microsoft.Toolkit.Uwp.UI;
+using Template10.Mvvm;
+using Windows.ApplicationModel.ExtendedExecution;
+using Windows.Storage;
+using Windows.UI.Xaml;
+using Windows.UI.Xaml.Controls;
+using Windows.UI.Xaml.Media.Animation;
+using Windows.UI.Xaml.Navigation;
 
 namespace DMO.ViewModels
 {
@@ -69,7 +58,7 @@ namespace DMO.ViewModels
 
         public bool IsMediaLoading { get; set; } = true;
 
-        public bool IsEvaluatingImages { get; set; } = false;
+        public bool IsProgressVisible { get; set; } = false;
 
         public AdvancedCollectionView SearchResults { get; set; }
 
@@ -119,7 +108,7 @@ namespace DMO.ViewModels
 
         public GalleryPageViewModel() : base()
         {
-            
+
         }
 
         #endregion
@@ -147,9 +136,13 @@ namespace DMO.ViewModels
         public void ToggleSortDirection()
         {
             if (DirectionSort == SortDirection.Ascending)
+            {
                 DirectionSort = SortDirection.Descending;
+            }
             else
+            {
                 DirectionSort = SortDirection.Ascending;
+            }
         }
 
         public void SortSelectionChanged()
@@ -182,10 +175,11 @@ namespace DMO.ViewModels
                         grid.PrepareConnectedAnimation("detailsGif1", mediaData, "HoverGif");
                     if (mediaData is VideoData)
                         grid.PrepareConnectedAnimation("detailsVideo1", mediaData, "MediaPlayerHover");
-                    
-                    Debug.WriteLine($"{DateTime.Now.Second}:{DateTime.Now.Millisecond} Navigating to {nameof(DetailsPage)}...");
-                    await NavigationService.NavigateAsync(typeof(DetailsPage), mediaData.MediaFile.Name, new ContinuumNavigationTransitionInfo());
-                    Debug.WriteLine($"{DateTime.Now.Second}:{DateTime.Now.Millisecond} Navigated to {nameof(DetailsPage)}!");
+
+                    using (new DisposableLogger(() => NavigationLog.NavBegin(nameof(DetailsPage)), (sw) => NavigationLog.NavEnd(sw, nameof(DetailsPage))))
+                    {
+                        await NavigationService.NavigateAsync(typeof(DetailsPage), mediaData.MediaFile.Name, new SuppressNavigationTransitionInfo());
+                    }
                 }
             }
         }
@@ -254,7 +248,9 @@ namespace DMO.ViewModels
                 {
                     // Throw error if folderpath is null.
                     if (string.IsNullOrEmpty(SettingsService.Instance.FolderPath))
+                    {
                         throw new ArgumentNullException($"{nameof(SettingsService.Instance.FolderPath)} is null. Could not create gallery.");
+                    }
 
                     // Greate gallery from folderPath.
                     Gallery = new Gallery(SettingsService.Instance.FolderPath);
@@ -263,7 +259,7 @@ namespace DMO.ViewModels
                 }
                 IsMediaLoading = false;
 
-                IsEvaluatingImages = true;
+                IsProgressVisible = true;
                 // Create progress object to report back evaluation progress.
                 var progress = new Progress<int>();
                 progress.ProgressChanged += (sender, evaluated) => { EvaluationProgress = ((float)evaluated / Math.Max(Gallery.MediaDatas.Count, 0)) * 100; };
@@ -275,7 +271,7 @@ namespace DMO.ViewModels
                 catch (OperationCanceledException e)
                 {
                     // Task was cancelled.
-                    Debug.WriteLine($"EvaluateImagesLocally: {e.Message}");
+                    LifecycleLog.Exception(e);
 
                     // Save local results to database.
                     await DatabaseUtils.SaveAllMetadatasAsync(Gallery.MediaDatas);
@@ -303,14 +299,14 @@ namespace DMO.ViewModels
                 catch (OperationCanceledException e)
                 {
                     // Task was cancelled.
-                    Debug.WriteLine($"EvaluateImagesOnline: {e.Message}");
+                    LifecycleLog.Exception(e);
 
                     // Save online results to database.
                     await DatabaseUtils.SaveAllMetadatasAsync(Gallery.MediaDatas);
                 }
                 finally
                 {
-                    IsEvaluatingImages = false;
+                    IsProgressVisible = false;
                 }
             }
         }
@@ -329,11 +325,16 @@ namespace DMO.ViewModels
                     }
                 }
 
-                // Cancel all current media evaluation processes.
-                _evaluationCancellationTokenSource.Cancel();
+                using (var session = new ExtendedExecutionSession { Reason = ExtendedExecutionReason.SavingData })
+                {
+                    // Request extension. This is done so that if the application can finish saving all data
+                    // to the database when being suspended.
+                    var result = await session.RequestExtensionAsync();
+                    LifecycleLog.ExtensionRequestResult(result);
 
-                // Save all metadatas asynchronously before suspending.
-                await DatabaseUtils.SaveAllMetadatasAsync(Gallery.MediaDatas);
+                    // Save all metadatas asynchronously before suspending.
+                    await DatabaseUtils.SaveAllMetadatasAsync(Gallery.MediaDatas);
+                }
             }
         }
 
@@ -365,11 +366,23 @@ namespace DMO.ViewModels
             // Apply sort description.
             SearchResults.SortDescriptions.Add(GetSortDescription(SettingsService.Instance.SortBy));
             // Scan all media in gallery.
-            using (SearchResults.DeferRefresh()) // Defer list updating until all items have been added.
+            //using (SearchResults.DeferRefresh()) // Defer list updating until all items have been added.
+            //{
+
+            // Create new progress object to report back loading progress.
+            var progress = new Progress<int>();
+            progress.ProgressChanged += (sender, loaded) => 
             {
-                // Load folder contents.
-                await Gallery.LoadFolderContents(TileSize, mediaDatas);
-            }
+                EvaluationProgress = ((float)loaded / Gallery.FilesFound) * 100;
+                // If any progress has been made.
+                if (EvaluationProgress > 0)
+                    IsMediaLoading = false; // Hide loading indicator.
+            };
+            IsProgressVisible = true;
+            // Load folder contents.
+            await Gallery.LoadFolderContents(TileSize, progress, mediaDatas);
+            IsProgressVisible = false;
+            //}
             // Update static list.
             App.MediaDatas = Gallery.MediaDatas.ToList();
         }
@@ -383,81 +396,9 @@ namespace DMO.ViewModels
         {
             using (var fileStream = await imageStorageFile.OpenStreamForReadAsync())
             {
-                BinaryReader binaryReader = new BinaryReader(fileStream);
+                var binaryReader = new BinaryReader(fileStream);
                 return binaryReader.ReadBytes((int)fileStream.Length);
             }
-        }
-
-        /// <summary>
-        /// Formats the given JSON string by adding line breaks and indents.
-        /// </summary>
-        /// <param name="json">The raw JSON string to format.</param>
-        /// <returns>The formatted JSON string.</returns>
-        static string JsonPrettyPrint(string json)
-        {
-            if (string.IsNullOrEmpty(json))
-                return string.Empty;
-
-            json = json.Replace(Environment.NewLine, "").Replace("\t", "");
-
-            string INDENT_STRING = "    ";
-            var indent = 0;
-            var quoted = false;
-            var sb = new StringBuilder();
-            for (var i = 0; i < json.Length; i++)
-            {
-                var ch = json[i];
-                switch (ch)
-                {
-                    case '{':
-                    case '[':
-                        sb.Append(ch);
-                        if (!quoted)
-                        {
-                            sb.AppendLine();
-                            Enumerable.Range(0, ++indent).ForEach(
-                                item => sb.Append(INDENT_STRING));
-                        }
-                        break;
-                    case '}':
-                    case ']':
-                        if (!quoted)
-                        {
-                            sb.AppendLine();
-                            Enumerable.Range(0, --indent).ForEach(
-                                item => sb.Append(INDENT_STRING));
-                        }
-                        sb.Append(ch);
-                        break;
-                    case '"':
-                        sb.Append(ch);
-                        bool escaped = false;
-                        var index = i;
-                        while (index > 0 && json[--index] == '\\')
-                            escaped = !escaped;
-                        if (!escaped)
-                            quoted = !quoted;
-                        break;
-                    case ',':
-                        sb.Append(ch);
-                        if (!quoted)
-                        {
-                            sb.AppendLine();
-                            Enumerable.Range(0, indent).ForEach(
-                                item => sb.Append(INDENT_STRING));
-                        }
-                        break;
-                    case ':':
-                        sb.Append(ch);
-                        if (!quoted)
-                            sb.Append(" ");
-                        break;
-                    default:
-                        sb.Append(ch);
-                        break;
-                }
-            }
-            return sb.ToString();
         }
 
         #endregion

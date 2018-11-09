@@ -1,13 +1,17 @@
 ﻿using DMO.Database;
 using DMO.Utility;
+using DMO.Utility.Logging;
 using DMO.Views;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Template10.Common;
 using Template10.Mvvm;
+using Windows.ApplicationModel;
+using Windows.UI.Popups;
 using Windows.UI.Xaml;
 
 namespace DMO.ViewModels
@@ -21,6 +25,7 @@ namespace DMO.ViewModels
     public class SettingsPartViewModel : ViewModelBase
     {
         Services.SettingsServices.SettingsService _settings;
+        StartupTask _startupTask;
 
         public bool AutoPlayGifs
         {
@@ -28,6 +33,14 @@ namespace DMO.ViewModels
             set => _settings.AutoPlayGifs = value;
         }
 
+        public uint MediaLoadBatchSize
+        {
+            get => _settings.MediaLoadBatchSize;
+            set => _settings.MediaLoadBatchSize = value;
+        }
+
+        public StartupTaskState StartupTaskState => _startupTask?.State ?? StartupTaskState.Disabled;
+        
         DelegateCommand _changeFolderCommand;
         public DelegateCommand ChangeFolderCommand
             => _changeFolderCommand ?? (_changeFolderCommand = new DelegateCommand(async () =>
@@ -42,6 +55,50 @@ namespace DMO.ViewModels
                 await nav.NavigateAsync(typeof(FolderSelectPage));
             }));
 
+        DelegateCommand _enableStartupTaskCommand;
+        public DelegateCommand EnableStartupTaskCommand
+            => _enableStartupTaskCommand ?? (_enableStartupTaskCommand = new DelegateCommand(async () =>
+            {
+                // Get startup task using Task Id from appxmanifest if not already gotten.
+                if (_startupTask == null)
+                    _startupTask = await StartupTask.GetAsync("DankMemeOrganizerStartupTask");
+
+                // Handle result.
+                switch (_startupTask.State)
+                {
+                    case StartupTaskState.Disabled:
+                        // Task is disabled but can be enabled.
+                        var newState = await _startupTask.RequestEnableAsync();
+                        // Log result.
+                        UILog.StartupTaskRequestEnableResult(newState);
+                        break;
+                    case StartupTaskState.DisabledByUser:
+                        // Task is disabled and user must enable it manually.
+                        var disabledByUserDialog = new MessageDialog(
+                            "You have disabled this app's ability to run " +
+                            "as soon as you sign in, but if you change your mind, " +
+                            "you can enable this in the Startup tab in Task Manager.",
+                            "Dank Meme Organizer Startup Task");
+                        await disabledByUserDialog.ShowAsync();
+                        break;
+                    case StartupTaskState.DisabledByPolicy:
+                        var disabledByPolicyDialog = new MessageDialog(
+                            "Startup disabled by group policy, or not supported on this device.",
+                            "Dank Meme Organizer Startup Task");
+                        await disabledByPolicyDialog.ShowAsync();
+                        break;
+                    case StartupTaskState.Enabled:
+                        var enabledDialog = new MessageDialog(
+                            "Startup task is already enabled. " + 
+                            "Dank Meme Organizer will start when you sign into Windows.",
+                            "Dank Meme Organizer Startup Task");
+                        await enabledDialog.ShowAsync();
+                        break;
+                }
+                // Update UI with a propertychanged event.
+                RaisePropertyChanged(nameof(StartupTaskState));
+            }));
+
         public SettingsPartViewModel()
         {
             if (Windows.ApplicationModel.DesignMode.DesignModeEnabled)
@@ -51,7 +108,14 @@ namespace DMO.ViewModels
             else
             {
                 _settings = Services.SettingsServices.SettingsService.Instance;
+                // Get startup task asynchronously using Task Id from appxmanifest.
+                GetStartupService();
             }
+        }
+
+        private async void GetStartupService()
+        {
+            _startupTask = await StartupTask.GetAsync("DankMemeOrganizerStartupTask");
         }
     }
 

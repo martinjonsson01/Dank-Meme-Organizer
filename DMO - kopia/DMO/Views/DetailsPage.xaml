@@ -10,12 +10,19 @@
       xmlns:converters="using:DMO.Converters"
       xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
       xmlns:googleModels="using:DMO_Model.GoogleAPI.Models"
+      xmlns:media="using:Microsoft.Toolkit.Uwp.UI.Media"
       Background="{ThemeResource SystemControlAcrylicElementBrush}"
-      xmlns:vm="using:DMO.ViewModels" mc:Ignorable="d">
+      xmlns:vm="using:DMO.ViewModels"
+      xmlns:models="using:DMO.Models" mc:Ignorable="d">
 
     <Page.Resources>
         <converters:TopThicknessConverter x:Key="TopThicknessConverter"/>
         <converters:StringEllipsisShortener x:Key="StringEllipsisShortener"/>
+        <converters:IsNotNullConverter x:Key="IsNotNullConverter" />
+        <converters:BooleanInverseConverter x:Key="BooleanInverseConverter" />
+        <converters:SafeSearchAnnotationToLikelihoodModelListConverter x:Key="SafeSearchAnnotationToLikelihoodModelListConverter" />
+        <converters:EnumToStringConverter x:Key="EnumToStringConverter" />
+        <converters:ColorToSolidColorBrushConverter x:Key="ColorToSolidColorBrushConverter" />
     </Page.Resources>
 
     <Page.DataContext>
@@ -58,8 +65,10 @@
                             <TextBlock FontFamily="Segoe MDL2 Assets" 
                                    Text="&#xE89F;"
                                    FontSize="30"
-                                   Foreground="{StaticResource SystemAccentColorBrush}"
                                    RenderTransformOrigin="0.5,0.5">
+                                <TextBlock.Foreground>
+                                    <SolidColorBrush Color="{ThemeResource SystemAccentColor}" />
+                                </TextBlock.Foreground>
                                 <TextBlock.RenderTransform>
                                     <RotateTransform Angle="180" />
                                 </TextBlock.RenderTransform>
@@ -74,11 +83,22 @@
                     </StackPanel>
 
                     <StackPanel Margin="20, 0, 20, 0">
-                        <TextBlock Text="Path" 
+                        <TextBlock Text="Folder Path" 
                                Foreground="{StaticResource InfoHeaderTextColorBrush}"/>
-                        <TextBlock Text="{x:Bind ViewModel.MediaData.Meta.MediaFilePath, Mode=OneWay}"
+                        <TextBlock Text="{x:Bind ViewModel.FolderPath, Mode=OneWay}"
                                    IsTextSelectionEnabled="True"
                                    TextWrapping="WrapWholeWords"/>
+                        <HyperlinkButton Command="{x:Bind ViewModel.OpenFolderCommand}">
+                            <HyperlinkButton.ContentTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="Open folder">
+                                        <TextBlock.Foreground>
+                                            <SolidColorBrush Color="{ThemeResource SystemAccentColor}" />
+                                        </TextBlock.Foreground>
+                                    </TextBlock>
+                                </DataTemplate>
+                            </HyperlinkButton.ContentTemplate>
+                        </HyperlinkButton>
                     </StackPanel>
 
                     <StackPanel Margin="20, 0, 20, 0">
@@ -124,10 +144,40 @@
                             <ListView.ItemTemplate>
                                 <DataTemplate x:DataType="googleModels:WebEntity">
                                     <TextBlock Text="{x:Bind Description, Mode=OneWay}"
-                                        IsTextSelectionEnabled="True"/>
+                                               IsTextSelectionEnabled="True"/>
                                 </DataTemplate>
                             </ListView.ItemTemplate>
                             </ListView>
+                    </StackPanel>
+
+                    <StackPanel Margin="20, 0, 20, 0">
+                        <TextBlock Text="SafeSearch" 
+                                   Foreground="{StaticResource InfoHeaderTextColorBrush}"/>
+                        <ListView ItemsSource="{x:Bind ViewModel.MediaData.SafeSearch, Converter={StaticResource SafeSearchAnnotationToLikelihoodModelListConverter}}">
+                            <ListView.ItemTemplate>
+                                <DataTemplate x:DataType="models:LikelihoodModel">
+                                    <StackPanel Orientation="Horizontal"
+                                                ToolTipService.ToolTip="{x:Bind Description, Mode=OneWay}"
+                                                Spacing="4">
+                                        <TextBlock Text="{x:Bind Name, Mode=OneWay}"/>
+                                        <TextBlock Text="{x:Bind Likelihood, Converter={StaticResource EnumToStringConverter}, Mode=OneWay}"
+                                               Foreground="{x:Bind Color, Converter={StaticResource ColorToSolidColorBrushConverter}, Mode=OneWay}"
+                                               IsTextSelectionEnabled="True" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </StackPanel>
+
+                    <StackPanel Margin="20, 0, 20, 0"
+                                Visibility="{x:Bind ViewModel.LargerMedia, Mode=OneWay, Converter={StaticResource IsNotNullConverter}}">
+                        <TextBlock Text="Higher resolution version available online" 
+                                   TextWrapping="WrapWholeWords"
+                                   Foreground="{StaticResource InfoHeaderTextColorBrush}"/>
+                        <Button Command="{x:Bind ViewModel.DownloadAndCompareCommand, Mode=OneWay}"
+                                IsEnabled="{x:Bind ViewModel.IsDownloadingLarger, Mode=OneWay, Converter={StaticResource BooleanInverseConverter}}"
+                                Content="Download and compare"
+                                Margin="4"/>
                     </StackPanel>
 
                     <StackPanel Margin="20, 0, 20, 0">
@@ -164,18 +214,16 @@
             </ScrollViewer>
         </SplitView.Pane>
 
-
-        <RelativePanel>
-
-            <controls:GenericMediaDataElement x:Name="GenericMediaDataElement"
-                                              Margin="32"
-                                              RelativePanel.AlignVerticalCenterWithPanel="True"
-                                              RelativePanel.AlignHorizontalCenterWithPanel="True" 
-                                              MediaData="{x:Bind ViewModel.MediaData, Mode=OneWay}"/>
-
+        
+        <Grid>
+            
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            
             <CommandBar x:Name="ToolBar"
-                        RelativePanel.AlignTopWithPanel="True"
-                        RelativePanel.AlignHorizontalCenterWithPanel="True"
+                        HorizontalAlignment="Center"
                         Margin="{x:Bind ViewModel.TitleBarMargin, Converter={StaticResource TopThicknessConverter}, Mode=OneWay}">
                 <AppBarButton Icon="ZoomIn" />
                 <AppBarButton Icon="Delete" />
@@ -186,8 +234,46 @@
                 </AppBarButton>
             </CommandBar>
 
-        </RelativePanel>
+            <RelativePanel Grid.Row="1">
 
+                <ScrollViewer x:Name="MediaScrollViewer"
+                              Margin="24, 0, 24, 24"
+                              HorizontalScrollBarVisibility="Hidden"
+                              VerticalScrollBarVisibility="Hidden"
+                              RelativePanel.AlignBottomWithPanel="True"
+                              RelativePanel.AlignTopWithPanel="True"
+                              RelativePanel.AlignLeftWithPanel="True"
+                              RelativePanel.AlignRightWithPanel="True"
+                              HorizontalContentAlignment="Center"
+                              VerticalContentAlignment="Center"
+                              ZoomMode="Enabled"
+                              IsZoomInertiaEnabled="True"
+                              MaxZoomFactor="3"
+                              MinZoomFactor="1">
+
+                    <Viewbox x:Name="MediaViewBox"
+                             HorizontalAlignment="Center"
+                             VerticalAlignment="Center"
+                             StretchDirection="DownOnly"
+                             RenderTransformOrigin="0.5, 0.5">
+
+                        <controls:GenericMediaDataElement x:Name="GenericMediaDataElement"
+                                                          ManipulationMode="TranslateX, TranslateY, TranslateInertia"
+                                                          ManipulationDelta="GenericMediaDataElement_ManipulationDelta"
+                                                          RenderTransformOrigin="0.5, 0.5"
+                                                          MediaData="{x:Bind ViewModel.MediaData, Mode=OneWay}">
+                            <controls:GenericMediaDataElement.RenderTransform>
+                                <CompositeTransform x:Name="MediaTransform" />
+                            </controls:GenericMediaDataElement.RenderTransform>
+                        </controls:GenericMediaDataElement>
+
+                    </Viewbox>
+                    
+                </ScrollViewer>
+
+            </RelativePanel>
+        </Grid>
+        
     </SplitView>
 
 </Page>

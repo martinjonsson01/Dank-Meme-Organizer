@@ -84,6 +84,12 @@ namespace DMO.Services.SettingsServices
             set => _helper.Write(nameof(MediaVolume), value);
         }
 
+        public uint MediaLoadBatchSize
+        {
+            get => _helper.Read(nameof(MediaLoadBatchSize), (uint)50);
+            set => _helper.Write(nameof(MediaLoadBatchSize), value);
+        }
+
         public SortDirection SortDirection
         {
             get => _helper.Read(nameof(SortDirection), SortDirection.Ascending);

@@ -1,20 +1,9 @@
-﻿using DMO.Services.SettingsServices;
+﻿using System;
+using System.Diagnostics;
+using System.Threading.Tasks;
+using DMO.Utility.Logging;
 using DMO.Views;
 using Firebase.Auth;
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Globalization;
-using System.Linq;
-using System.Net.Http;
-using System.Text;
-using System.Threading.Tasks;
-using Windows.Data.Json;
-using Windows.Security.Authentication.Web;
-using Windows.Security.Credentials;
-using Windows.Security.Cryptography;
-using Windows.Security.Cryptography.Core;
-using Windows.Storage.Streams;
 
 namespace DMO.GoogleAPI
 {
@@ -26,17 +15,18 @@ namespace DMO.GoogleAPI
         public static string accessToken = string.Empty;
 
         private FirebaseAuthLink FirebaseAuthLink;
-        
+
         private static FirebaseClient client = null;
         public static FirebaseClient Client
         {
             get
             {
-                if (client == null) client = new FirebaseClient();
+                if (client == null)
+                    client = new FirebaseClient();
                 return client;
             }
         }
-        
+
         public async Task<bool> SignInWithFirebaseAsync(string googleAccessToken)
         {
             try
@@ -53,8 +43,8 @@ namespace DMO.GoogleAPI
             }
             catch (Exception e)
             {
-                Debug.Write(e.Message);
-                Debug.Write(e.StackTrace);
+                // Log Exception.
+                LifecycleLog.Exception(e);
                 return false;
             }
         }
@@ -75,44 +65,48 @@ namespace DMO.GoogleAPI
             {
                 string googleToken;
 
-                // Try to fetch google token without prompting the user (authorizing).
-                if (await GoogleClient.Client.GetAccessTokenWithoutAuthentication())
-                    googleToken = GoogleClient.accessToken;
-                else // Prompt the user to authorize the application.
-                    googleToken = await AuthModal.AuthorizeAndGetGoogleAccessTokenAsync();
-                Debug.WriteLine($"Google access token successfully aquired: {googleToken}");
-
-                // Try to sign into firebase with the googleToken.
-                if (await SignInWithFirebaseAsync(googleToken))
+                using (new DisposableLogger(() => AuthLog.GetAccessTokenBegin("Google"), (sw) => AuthLog.GetAccessTokenEnd(sw, "Google", !string.IsNullOrEmpty(GoogleClient.accessToken))))
                 {
-                    Debug.WriteLine($"Firebase access token successfully aquired: {accessToken}");
-                    return true;
+                    // Try to fetch google token without prompting the user (authorizing).
+                    if (await GoogleClient.Client.GetAccessTokenWithoutAuthentication())
+                        googleToken = GoogleClient.accessToken;
+                    else // Prompt the user to authorize the application.
+                        googleToken = await AuthModal.AuthorizeAndGetGoogleAccessTokenAsync();
                 }
-                else
+
+                var firebaseSignInSuccess = false;
+                using (new DisposableLogger(() => AuthLog.GetAccessTokenBegin("Firebase"), (sw) => AuthLog.GetAccessTokenEnd(sw, "Firebase", firebaseSignInSuccess)))
+                {
+                    // Try to sign into firebase with the googleToken.
+                    firebaseSignInSuccess = await SignInWithFirebaseAsync(googleToken);
+                }
+                if (!firebaseSignInSuccess)
                 {
                     // Could not log into firebase. Could be caused by a refresh token revocation, try re-authenticating with Google.
                     googleToken = await AuthModal.AuthorizeAndGetGoogleAccessTokenAsync();
-                    // Retry firebase login.
-                    if (await SignInWithFirebaseAsync(googleToken))
+
+                    using (new DisposableLogger(() => AuthLog.GetAccessTokenBegin("Firebase"), (sw) => AuthLog.GetAccessTokenEnd(sw, "Firebase", firebaseSignInSuccess)))
                     {
-                        Debug.WriteLine($"Firebase access token successfully aquired: {accessToken}");
-                        return true;
+                        // Retry firebase login.
+                        firebaseSignInSuccess = await SignInWithFirebaseAsync(googleToken);
+                        // Return result.
+                        return firebaseSignInSuccess;
                     }
                 }
-                
-                return false;
+
+                return firebaseSignInSuccess;
             }
             catch (Exception e)
             {
-                Debug.Write(e.Message);
-                Debug.Write(e.StackTrace);
+                // Log Exception.
+                LifecycleLog.Exception(e);
                 return false;
             }
         }
 
         private void FirebaseAuthLink_FirebaseAuthRefreshed(object sender, FirebaseAuthEventArgs e)
         {
-            Debug.WriteLine("Firebase access token refreshed!");
+            AuthLog.AccessTokenRefreshed("Firebase");
             accessToken = e.FirebaseAuth.FirebaseToken;
         }
     }

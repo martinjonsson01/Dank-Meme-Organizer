@@ -28,6 +28,13 @@ using System.Net.Http;
 using DMO.GoogleAPI;
 using DMO_Model.Models;
 using DMO_Model.GoogleAPI.Models;
+using Windows.UI.Core;
+using Windows.UI.Xaml.Navigation;
+using Windows.ApplicationModel.ExtendedExecution;
+using DMO.Utility.Logging;
+using System.Diagnostics.Tracing;
+using DMO.Utility;
+using Windows.ApplicationModel.Background;
 
 namespace DMO
 {
@@ -39,6 +46,8 @@ namespace DMO
         public static Dictionary<string, StorageFile> Files = new Dictionary<string, StorageFile>();
         
         public static readonly HttpClient HttpClient = new HttpClient(new HttpClientHandler { AllowAutoRedirect = true });
+
+        public static readonly HttpClient HttpClientNoRedirect = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false });
 
         public static Gallery Gallery;
 
@@ -53,6 +62,12 @@ namespace DMO
         /// The <see cref="MediaMetadata"/> taken directly from the database. Don't mess with these, they are supposed to be untainted.
         /// </summary>
         public static List<MediaMetadata> DatabaseMetaDatas = new List<MediaMetadata>();
+
+        private ExtendedExecutionSession session;
+
+        private static StorageFileEventListener informationListener;
+
+        private static StorageFileEventListener verboseListener;
 
         public App()
         {
@@ -73,31 +88,58 @@ namespace DMO
 
             #endregion
 
+            // Initialize logger.
+            informationListener = new StorageFileEventListener("info");
+            verboseListener = new StorageFileEventListener("verbose");
+            // Enable events for loggers.
+            informationListener.EnableEvents(EventLog.Log, EventLevel.Informational);
+            verboseListener.EnableEvents(EventLog.Log, EventLevel.LogAlways);
+
             // Clear FutureAccessList as it has a max limit of 1000.
             ClearFutureAccessList();
+
+            // Log startup.
+            LifecycleLog.AppStarting();
         }
 
         private async Task SetUpAndLoadFromDatabase()
         {
             using (var context = new MediaMetaDatabaseContext())
             {
-                // TODO: WARNING REMOVE THIS. IT CLEARS AND RESETS THE ENTIRE DATABASE.
-                //await context.Database.EnsureDeletedAsync();
-
                 // Creates and/or migrates the database if it does not exist/is not up to date.
                 await context.Database.MigrateAsync();
 
+                // Fetch metadatas from database.
                 DatabaseMetaDatas = await context.GetAllMetadatasAsync();
-                foreach (var meta in DatabaseMetaDatas)
+
+                using(new DisposableLogger(DatabaseLog.CreateMediaDatasBegin, DatabaseLog.CreateMediaDatasEnd))
                 {
-                    var mediaData = await MediaData.CreateFromMediaMetadataAsync(meta);
-                    MediaDatas.Add(mediaData);
+                    // Turn metadatas into mediadatas.
+                    foreach (var meta in DatabaseMetaDatas)
+                    {
+                        var mediaData = await MediaData.CreateFromMediaMetadataAsync(meta);
+                        MediaDatas.Add(mediaData);
+                    }
                 }
             }
         }
 
+        public override Task OnPrelaunchAsync(IActivatedEventArgs args, out bool runOnStartAsync)
+        {
+            // Log prelaunch.
+            LifecycleLog.AppPrelaunch();
+
+            runOnStartAsync = true;
+            return Task.CompletedTask;
+        }
+
         public override async Task OnStartAsync(StartKind startKind, IActivatedEventArgs args)
         {
+            // Log OnStart.
+            LifecycleLog.AppOnStart(startKind, args);
+            // CoreApplication.EnablePrelaunch was introduced in Windows 10 version 1607
+            var canEnablePrelaunch = Windows.Foundation.Metadata.ApiInformation.IsMethodPresent("Windows.ApplicationModel.Core.CoreApplication", "EnablePrelaunch");
+
             if (startKind == StartKind.Activate)
             {
                 if (args.Kind == ActivationKind.Protocol)
@@ -110,28 +152,68 @@ namespace DMO
             if (startKind == StartKind.Launch)
             {
                 // Enable prelaunch.
-                TryEnablePrelaunch();
+                if (canEnablePrelaunch)
+                    TryEnablePrelaunch();
 
-                // Set up database.
-                Debug.WriteLine("Setting up database...");
-                var sw = new Stopwatch();
-                sw.Start();
-                await SetUpAndLoadFromDatabase();
-                sw.Stop();
-                Debug.WriteLine($"Database setup! Elapsed time: {sw.ElapsedMilliseconds} ms");
+                // End the Extended Execution Session.
+                ClearExtendedExecution();
 
-                // If MediaDatas have been loaded from database then open GalleryPage using those.
-                if (MediaDatas.Count > 0)
+                using (session = new ExtendedExecutionSession
                 {
-                    await NavigationService.NavigateAsync(typeof(Views.GalleryPage), nameof(MediaDatas));
-                    return;
-                }
+                    Reason = ExtendedExecutionReason.Unspecified,
+                    Description = "Loading Memes from database"
+                })
+                {
+                    // Register Revoked listener.
+                    session.Revoked += SessionRevoked;
 
-                // If no folder path has been set, have the user select one.
-                if (string.IsNullOrEmpty(SettingsService.Instance.FolderPath))
-                    await NavigationService.NavigateAsync(typeof(Views.FolderSelectPage));
-                else
-                    await NavigationService.NavigateAsync(typeof(Views.GalleryPage));
+                    var accessStatus = BackgroundExecutionManager.GetAccessStatus();
+                    if (accessStatus != BackgroundAccessStatus.AlwaysAllowed)
+                    {
+                        // Request background access.
+                        var accessGranted = await BackgroundExecutionManager.RequestAccessKindAsync(BackgroundAccessRequestKind.AlwaysAllowed, "To allow faster launch performance");
+                    }
+                    // Request extension. This is done so that if the application can finish loading data
+                    // from database when prelaunched or minimized (suspended prematurely).
+                    var result = await session.RequestExtensionAsync();
+                    LifecycleLog.ExtensionRequestResult(result);
+
+                    if (result == ExtendedExecutionResult.Denied)
+                    {
+                        session.Dispose();
+                        // TODO: Notify user of extension result denied.
+                    }
+
+                    // Set up database.
+                    using (new DisposableLogger(DatabaseLog.LoadBegin, DatabaseLog.LoadEnd))
+                    {
+                        if (!(args.PreviousExecutionState == ApplicationExecutionState.Suspended && MediaDatas.Count > 0))
+                            await SetUpAndLoadFromDatabase();
+                    }
+
+                    // If MediaDatas have been loaded from database then open GalleryPage using those.
+                    if (MediaDatas.Count > 0)
+                    {
+                        await NavigationService.NavigateAsync(typeof(Views.GalleryPage), nameof(MediaDatas));
+                        return;
+                    }
+
+                    // If no folder path has been set, have the user select one.
+                    if (string.IsNullOrEmpty(SettingsService.Instance.FolderPath))
+                        await NavigationService.NavigateAsync(typeof(Views.FolderSelectPage));
+                    else
+                        await NavigationService.NavigateAsync(typeof(Views.GalleryPage));
+                }
+            }
+        }
+
+        private void ClearExtendedExecution()
+        {
+            if (session != null)
+            {
+                session.Revoked -= SessionRevoked;
+                session.Dispose();
+                session = null;
             }
         }
 
@@ -142,14 +224,47 @@ namespace DMO
 
         public override Task OnSuspendingAsync(object s, SuspendingEventArgs e, bool prelaunchActivated)
         {
+            // Log suspension.
+            LifecycleLog.AppSuspending();
+
             return base.OnSuspendingAsync(s, e, prelaunchActivated);
         }
-
+        
         protected override INavigationService CreateNavigationService(Frame frame)
         {
             var navService = base.CreateNavigationService(frame);
             navService.Frame.ContentTransitions?.Clear();
             navService.Frame.ContentTransitions?.Add(new NavigationThemeTransition { DefaultNavigationTransitionInfo = new ContinuumNavigationTransitionInfo() });
+
+            frame.NavigationFailed += (obj, e) =>
+            {
+                // Log NavigationException.
+                LifecycleLog.NavigationException(e);
+                // Set handled to true so the application doesn't crash.
+                e.Handled = true;
+            };
+            navService.FrameFacade.BackRequested += async (sender, backArgs) =>
+            {
+                // Handle event so this is the only place handling it.
+                backArgs.Handled = true;
+                
+                // Perform navigation on main thread.
+                await navService.Dispatcher.DispatchAsync(() =>
+                {
+                    try
+                    {
+                        // Go back when on main thread.
+                        navService.FrameFacade.GoBack();
+                    }
+                    catch (Exception e)
+                    {
+                        // Log Exception.
+                        LifecycleLog.Exception(e);
+                    }
+                },
+                0, CoreDispatcherPriority.Normal);
+            };
+
             return navService;
         }
 
@@ -165,6 +280,17 @@ namespace DMO
             {
                 StorageApplicationPermissions.FutureAccessList.Remove(tokenRemove);
             }
+        }
+
+        private async void SessionRevoked(object sender, ExtendedExecutionRevokedEventArgs args)
+        {
+            await NavigationService.Dispatcher.DispatchAsync(() =>
+            {
+                // Log reason.
+                LifecycleLog.ExtensionRevoked(args.Reason);
+
+                ClearExtendedExecution();
+            }, 0, CoreDispatcherPriority.Normal);
         }
 
     }

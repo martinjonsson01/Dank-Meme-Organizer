@@ -36,7 +36,7 @@ namespace DMO.Utility
         public static bool IsSupportedExtension(string extension)
         {
             if (extension.StartsWith('.'))
-                extension.Remove(0, 1);
+                 extension = extension.Remove(0, 1);
             var mimeType = MimeTypeMap.GetMimeType(extension);
             return MIMETypes.Contains(mimeType.Split('/').FirstOrDefault().ToLowerInvariant());
         }

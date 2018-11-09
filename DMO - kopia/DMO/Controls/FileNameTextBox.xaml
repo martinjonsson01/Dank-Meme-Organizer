@@ -13,6 +13,9 @@
              Text="{x:Bind Text, Mode=TwoWay}"
              VerticalAlignment="Center"
              HorizontalAlignment="Center"
-             KeyDown="TextBox_KeyDown"/>
+             KeyDown="TextBox_KeyDown"
+             SelectionChanged="TextBox_SelectionChanged"
+             FocusDisengaged="TextBox_FocusDisengaged"
+             GettingFocus="TextBox_GettingFocus"/>
 
 </UserControl>

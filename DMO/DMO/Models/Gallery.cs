@@ -118,14 +118,16 @@ namespace DMO.Models
                 // Time and log file parsing.
                 using (new DisposableLogger(GalleryLog.FileParseBegin, (sw) => GalleryLog.FileParseEnd(sw, FilesFound)))
                 {
-                    uint index = 0, stepSize = 50;
+                    uint index = 0, stepSize = SettingsService.Instance.MediaLoadBatchSize;
                     var files = await _query.GetFilesAsync(index, stepSize);
                     index += stepSize;
                     while (files.Count != 0)
                     {
                         var fileTask = _query.GetFilesAsync(index, stepSize).AsTask();
-                        foreach (var mediaFile in files)
+                        for (var i = 0; i < files.Count; i++)
                         {
+                            var mediaFile = files[i];
+
                             // Don't bother with files not supported by MIME.
                             if (!FileTypes.IsSupportedExtension(mediaFile.FileType))
                                 continue;
@@ -355,12 +357,12 @@ namespace DMO.Models
             return mediaDataToRemove;
         }
 
-        public static async Task ApplyThumbnails(int imageSize, StorageFile mediaFile, MediaData data)
+        public static Task ApplyThumbnails(int imageSize, StorageFile mediaFile, MediaData data)
         {
             //
             // Apply bitmap source depending on file type.
             //
-            switch (mediaFile.FileType)
+            /*switch (mediaFile.FileType)
             {
                 case ".gif":
                     using (var gifStream = await mediaFile.OpenReadAsync())
@@ -376,7 +378,8 @@ namespace DMO.Models
                     // Thumbnails for everything but gifs do not need to be animated so a static thumbnail is fine.
                     //await data.Thumbnail.SetSourceAsync(thumbnail);
                     break;
-            }
+            }*/
+            return Task.CompletedTask;
         }
 
         public async Task EvaluateImagesOnline(IProgress<int> progress, CancellationToken cancellationToken)
@@ -421,14 +424,16 @@ namespace DMO.Models
         public async Task EvaluateImagesLocally(IProgress<int> progress, CancellationToken cancellationToken)
         {
             var evaluated = 0;
-            using (new DisposableLogger(GalleryLog.EvaluateOnlineBegin, (sw) => GalleryLog.EvaluateOnlineEnd(sw, evaluated)))
+            using (new DisposableLogger(GalleryLog.EvaluateLocalBegin, (sw) => GalleryLog.EvaluateLocalEnd(sw, evaluated)))
             {
                 IsEvaluating = true;
 
                 await LoadLocalModel();
 
-                foreach (var data in MediaDatas)
+                for (var i = 0; i < MediaDatas.Count; i++)
                 {
+                    var data = MediaDatas[i];
+
                     // Throw if cancellation is requested.
                     cancellationToken.ThrowIfCancellationRequested();
 
@@ -517,7 +522,7 @@ namespace DMO.Models
         private async Task ProcessFileChange(StorageLibraryChange change)
         {
             // Temp variable used for instantiating StorageFiles for sorting if needed later
-            StorageFile newFile = null;
+            //StorageFile newFile = null;
             var extension = Path.GetExtension(change.Path);
 
             switch (change.ChangeType)

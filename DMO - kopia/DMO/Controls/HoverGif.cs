@@ -2,6 +2,7 @@
 using DMO.Services.SettingsServices;
 using System;
 using System.ComponentModel;
+using System.Linq;
 using System.Threading.Tasks;
 using Template10.Mvvm;
 using Windows.ApplicationModel.DataTransfer;
@@ -149,6 +150,14 @@ namespace DMO.Controls
                 Image.Source = imageBitmap;
                 // Open stream to file and apply as bitmap source.
                 await imageBitmap.SetSourceAsync(await mediaFile.OpenReadAsync());
+                // Get mediaData from gallery.
+                var mediaData = App.Gallery.MediaDatas.FirstOrDefault(data => data.Meta.MediaFilePath.Equals(mediaFile.Path));
+                if (mediaData != null)
+                {
+                    // Update meta height and width.
+                    mediaData.Meta.Height = imageBitmap.PixelHeight;
+                    mediaData.Meta.Width = imageBitmap.PixelWidth;
+                }
             }
         }
 

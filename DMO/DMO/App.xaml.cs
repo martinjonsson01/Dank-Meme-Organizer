@@ -34,6 +34,7 @@ using Windows.ApplicationModel.ExtendedExecution;
 using DMO.Utility.Logging;
 using System.Diagnostics.Tracing;
 using DMO.Utility;
+using Windows.ApplicationModel.Background;
 
 namespace DMO
 {
@@ -61,7 +62,13 @@ namespace DMO
         /// The <see cref="MediaMetadata"/> taken directly from the database. Don't mess with these, they are supposed to be untainted.
         /// </summary>
         public static List<MediaMetadata> DatabaseMetaDatas = new List<MediaMetadata>();
-        
+
+        private ExtendedExecutionSession session;
+
+        private static StorageFileEventListener informationListener;
+
+        private static StorageFileEventListener verboseListener;
+
         public App()
         {
             InitializeComponent();
@@ -82,13 +89,14 @@ namespace DMO
             #endregion
 
             // Initialize logger.
-            var verboseListener = new StorageFileEventListener("verbose");
-            var informationListener = new StorageFileEventListener("info");
+            informationListener = new StorageFileEventListener("info");
+            verboseListener = new StorageFileEventListener("verbose");
             // Enable events for loggers.
             informationListener.EnableEvents(EventLog.Log, EventLevel.Informational);
-            informationListener.EnableEvents(EventLog.Log, EventLevel.Error);
-            informationListener.EnableEvents(EventLog.Log, EventLevel.Critical);
             verboseListener.EnableEvents(EventLog.Log, EventLevel.LogAlways);
+
+			// Handle unhandled events.
+			UnhandledException += App_UnhandledException;
 
             // Clear FutureAccessList as it has a max limit of 1000.
             ClearFutureAccessList();
@@ -97,7 +105,13 @@ namespace DMO
             LifecycleLog.AppStarting();
         }
 
-        private async Task SetUpAndLoadFromDatabase()
+		private void App_UnhandledException(object sender, Windows.UI.Xaml.UnhandledExceptionEventArgs e)
+		{
+			e.Handled = true;
+			LifecycleLog.Exception(e.Exception);
+		}
+
+		private async Task SetUpAndLoadFromDatabase()
         {
             using (var context = new MediaMetaDatabaseContext())
             {
@@ -130,6 +144,8 @@ namespace DMO
 
         public override async Task OnStartAsync(StartKind startKind, IActivatedEventArgs args)
         {
+            // Log OnStart.
+            LifecycleLog.AppOnStart(startKind, args);
             // CoreApplication.EnablePrelaunch was introduced in Windows 10 version 1607
             var canEnablePrelaunch = Windows.Foundation.Metadata.ApiInformation.IsMethodPresent("Windows.ApplicationModel.Core.CoreApplication", "EnablePrelaunch");
 
@@ -148,12 +164,34 @@ namespace DMO
                 if (canEnablePrelaunch)
                     TryEnablePrelaunch();
 
-                using (var session = new ExtendedExecutionSession { Reason = ExtendedExecutionReason.Unspecified })
+                // End the Extended Execution Session.
+                ClearExtendedExecution();
+
+                using (session = new ExtendedExecutionSession
                 {
+                    Reason = ExtendedExecutionReason.Unspecified,
+                    Description = "Loading Memes from database"
+                })
+                {
+                    // Register Revoked listener.
+                    session.Revoked += SessionRevoked;
+
+                    var accessStatus = BackgroundExecutionManager.GetAccessStatus();
+                    if (accessStatus != BackgroundAccessStatus.AlwaysAllowed)
+                    {
+                        // Request background access.
+                        var accessGranted = await BackgroundExecutionManager.RequestAccessKindAsync(BackgroundAccessRequestKind.AlwaysAllowed, "To allow faster launch performance");
+                    }
                     // Request extension. This is done so that if the application can finish loading data
                     // from database when prelaunched or minimized (suspended prematurely).
                     var result = await session.RequestExtensionAsync();
                     LifecycleLog.ExtensionRequestResult(result);
+
+                    if (result == ExtendedExecutionResult.Denied)
+                    {
+                        session.Dispose();
+                        // TODO: Notify user of extension result denied.
+                    }
 
                     // Set up database.
                     using (new DisposableLogger(DatabaseLog.LoadBegin, DatabaseLog.LoadEnd))
@@ -175,6 +213,16 @@ namespace DMO
                     else
                         await NavigationService.NavigateAsync(typeof(Views.GalleryPage));
                 }
+            }
+        }
+
+        private void ClearExtendedExecution()
+        {
+            if (session != null)
+            {
+                session.Revoked -= SessionRevoked;
+                session.Dispose();
+                session = null;
             }
         }
 
@@ -241,6 +289,17 @@ namespace DMO
             {
                 StorageApplicationPermissions.FutureAccessList.Remove(tokenRemove);
             }
+        }
+
+        private async void SessionRevoked(object sender, ExtendedExecutionRevokedEventArgs args)
+        {
+            await NavigationService.Dispatcher.DispatchAsync(() =>
+            {
+                // Log reason.
+                LifecycleLog.ExtensionRevoked(args.Reason);
+
+                ClearExtendedExecution();
+            }, 0, CoreDispatcherPriority.Normal);
         }
 
     }

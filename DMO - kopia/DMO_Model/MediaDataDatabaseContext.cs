@@ -32,33 +32,5 @@ namespace DMO.Database
         {
             base.OnModelCreating(modelBuilder);
         }
-        
-        public async Task<List<MediaMetadata>> GetAllMetadatasAsync()
-        {
-            var sw = new Stopwatch();
-            sw.Start();
-            // Get all MediaMetaJsons from database using this LINQ query.
-            var metaJsons = await MediaMetaJsons
-                .Include(j => j.Labels)
-                .ToListAsync();
-            sw.Stop();
-            Debug.WriteLine($"MediaMetadatas queried! Elapsed time: {sw.ElapsedMilliseconds} ms Queried {metaJsons.Count} objects");
-
-            sw.Reset();
-            sw.Start();
-            var metas = new List<MediaMetadata>();
-            // Deserialize the JSON data in each MediaMetaJson object into a MediaMetadata object and add it to metas.
-            foreach (var metaJson in metaJsons)
-            {
-                var meta = await Task.Run(() => JsonConvert.DeserializeObject<MediaMetadata>(metaJson.Json));
-                meta.Labels = new ObservableCollection<Label>(metaJson.Labels);
-                metas.Add(meta);
-            }
-            sw.Stop();
-            Debug.WriteLine($"MediaMetaJsons deserialized! Elapsed time: {sw.ElapsedMilliseconds} ms Deserialized {metas.Count} objects");
-
-            return metas;
-        }
-
     }
 }

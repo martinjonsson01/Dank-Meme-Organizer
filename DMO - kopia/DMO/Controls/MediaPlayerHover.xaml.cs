@@ -1,8 +1,10 @@
 ﻿using DMO.Services.SettingsServices;
+using DMO.Utility.Logging;
 using PropertyChanged;
 using System;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Template10.Mvvm;
@@ -173,44 +175,70 @@ namespace DMO.Controls
             {
                 if (MediaElement != null)
                 {
-                    // Apply volume.
-                    MediaElement.Volume = SettingsService.Instance.MediaVolume;
-                    // Get media file using file name.
-                    var mediaFile = App.Files[FileName];
-                    // Load thumbnail.
-                    var thumbnail = await mediaFile.GetThumbnailAsync(ThumbnailMode.SingleItem);
-                    // TODO: MediaElement becomes null between the await-s, try reinstating a new one when it does that.
-                    // Apply poster source.
-                    var thumbnailBitmap = new BitmapImage();
-                    MediaElement.PosterSource = thumbnailBitmap;
-                    await thumbnailBitmap.SetSourceAsync(thumbnail);
-                    _mediaSource = MediaSource.CreateFromStorageFile(mediaFile);
-                    // Open stream to media file and set as source for video.
-                    MediaElement.SetPlaybackSource(_mediaSource);
+                    try
+                    {
+                        // Apply volume.
+                        MediaElement.Volume = SettingsService.Instance.MediaVolume;
+                        // Get media file using file name.
+                        var mediaFile = App.Files[FileName];
+                        // Get media data using file path.
+                        var mediaData = App.Gallery.MediaDatas.FirstOrDefault(data => data.Meta.MediaFilePath.Equals(mediaFile.Path));
+                        // Load thumbnail so size of media is cached.
+                        (await mediaData.GetThumbnailAsync()).Dispose();
+                        // Load thumbnail.
+                        var thumbnail = await mediaFile.GetThumbnailAsync(ThumbnailMode.SingleItem);
+                        // TODO: MediaElement becomes null between the await-s, try reinstating a new one when it does that.
+                        if (MediaElement == null) return; // TODO: TEMPORARY HOTFIX.
+                                                          // Apply poster source.
+                        var thumbnailBitmap = new BitmapImage();
+                        MediaElement.PosterSource = thumbnailBitmap;
+                        await thumbnailBitmap.SetSourceAsync(thumbnail);
+                        _mediaSource = MediaSource.CreateFromStorageFile(mediaFile);
+                        // Open stream to media file and set as source for video.
+                        MediaElement.SetPlaybackSource(_mediaSource);
+                    }
+                    catch (Exception e)
+                    {
+                        // Log Exception.
+                        LifecycleLog.Exception(e);
+                    }
                 }
             }
         }
 
-        private async void MediaElement_Loaded(object sender, RoutedEventArgs e)
+        private async void MediaElement_Loaded(object sender, RoutedEventArgs arg)
         {
             if (!string.IsNullOrEmpty(FileName))
             {
                 if (App.Files.ContainsKey(FileName))
                 {
-                    // Apply volume.
-                    MediaElement.Volume = SettingsService.Instance.MediaVolume;
-                    // Get media file using file name.
-                    var mediaFile = App.Files[FileName];
-                    // Load thumbnail.
-                    var thumbnail = await mediaFile.GetThumbnailAsync(ThumbnailMode.SingleItem);
-                    // TODO: MediaElement becomes null between the await-s, try reinstating a new one when it does that.
-                    // Apply poster source.
-                    var thumbnailBitmap = new BitmapImage();
-                    MediaElement.PosterSource = thumbnailBitmap;
-                    await thumbnailBitmap.SetSourceAsync(thumbnail);
-                    _mediaSource = MediaSource.CreateFromStorageFile(mediaFile);
-                    // Open stream to media file and set as source for video.
-                    MediaElement.SetPlaybackSource(_mediaSource);
+                    try
+                    {
+                        // Apply volume.
+                        MediaElement.Volume = SettingsService.Instance.MediaVolume;
+                        // Get media file using file name.
+                        var mediaFile = App.Files[FileName];
+                        // Get media data using file path.
+                        var mediaData = App.Gallery.MediaDatas.FirstOrDefault(data => data.Meta.MediaFilePath.Equals(mediaFile.Path));
+                        // Load thumbnail so size of media is cached.
+                        (await mediaData.GetThumbnailAsync()).Dispose();
+                        // Load thumbnail.
+                        var thumbnail = await mediaFile.GetThumbnailAsync(ThumbnailMode.SingleItem);
+                        // TODO: MediaElement becomes null between the await-s, try reinstating a new one when it does that.
+                        if (MediaElement == null) return; // TODO: TEMPORARY HOTFIX.
+                                                          // Apply poster source.
+                        var thumbnailBitmap = new BitmapImage();
+                        MediaElement.PosterSource = thumbnailBitmap;
+                        await thumbnailBitmap.SetSourceAsync(thumbnail);
+                        _mediaSource = MediaSource.CreateFromStorageFile(mediaFile);
+                        // Open stream to media file and set as source for video.
+                        MediaElement.SetPlaybackSource(_mediaSource);
+                    }
+                    catch (Exception e)
+                    {
+                        // Log Exception.
+                        LifecycleLog.Exception(e);
+                    }
                 }
             }
         }
@@ -260,7 +288,8 @@ namespace DMO.Controls
 
         private void MediaElement_MediaFailed(object sender, ExceptionRoutedEventArgs e)
         {
-            Debug.WriteLine($"{FileName} : {e}");
+            // TODO: This error shouldn't happen anymore. Fix it.
+            Debug.WriteLine($"{FileName} : {e.ErrorMessage}");
         }
     }
 }

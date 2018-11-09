@@ -60,9 +60,9 @@
                                 </StackPanel>
 
                                 <StackPanel Margin="20, 0, 20, 0">
-                                    <TextBlock Text="Path" 
+                                    <TextBlock Text="Folder Path" 
                                            Foreground="{StaticResource InfoHeaderTextColorBrush}"/>
-                                    <TextBlock Text="{x:Bind MediaData.Meta.MediaFilePath, Mode=OneWay}"
+                                    <TextBlock Text="{x:Bind FolderPath, Mode=OneWay}"
                                            IsTextSelectionEnabled="True"
                                            TextWrapping="WrapWholeWords"/>
                                 </StackPanel>

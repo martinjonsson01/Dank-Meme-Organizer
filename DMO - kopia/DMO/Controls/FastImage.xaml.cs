@@ -1,14 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading.Tasks;
+using DMO.Utility.Logging;
 using Template10.Mvvm;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
 using Windows.Foundation.Collections;
+using Windows.Storage;
 using Windows.Storage.FileProperties;
 using Windows.Storage.Streams;
 using Windows.UI.Xaml;
@@ -141,15 +144,34 @@ namespace DMO.Controls
                 if (App.Files.ContainsKey(FileName))
                 {
                     // Get media file using file name.
+                    /*var path = App.Files[FileName].Path;
+                    var mediaFile = await StorageFile.GetFileFromPathAsync(path);*/
                     var mediaFile = App.Files[FileName];
                     // Apply image source.
                     var imageBitmap = new BitmapImage();
                     Media.Source = imageBitmap;
                     // Open stream to file and apply as bitmap source.
-                    await imageBitmap.SetSourceAsync(await mediaFile.OpenReadAsync());
+                    try
+                    {
+                        await imageBitmap.SetSourceAsync(await mediaFile.OpenReadAsync());
+                        //await imageBitmap.SetSourceAsync(await mediaFile.GetThumbnailAsync(ThumbnailMode.SingleItem, (uint)App.Gallery.ImageSize, ThumbnailOptions.UseCurrentScale));
+
+                        // Get mediaData from gallery.
+                        var mediaData = App.Gallery.MediaDatas.FirstOrDefault(data => data.Meta.MediaFilePath.Equals(mediaFile.Path));
+                        if (mediaData != null )
+                        {
+                            // Update meta height and width.
+                            mediaData.Meta.Height = imageBitmap.PixelHeight;
+                            mediaData.Meta.Width = imageBitmap.PixelWidth;
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        // Log Exception.
+                        LifecycleLog.Exception(e);
+                    }
                 }
             }
         }
-
     }
 }

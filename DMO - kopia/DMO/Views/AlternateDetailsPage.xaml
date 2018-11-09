@@ -1,0 +1,224 @@
+﻿<Page x:Class="DMO.Views.AlternateDetailsPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:Behaviors="using:Template10.Behaviors"
+      xmlns:Core="using:Microsoft.Xaml.Interactions.Core"
+      xmlns:Interactivity="using:Microsoft.Xaml.Interactivity"
+      xmlns:controls="using:DMO.Controls"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      xmlns:local="using:DMO.Views"
+      xmlns:converters="using:DMO.Converters"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      xmlns:googleModels="using:DMO_Model.GoogleAPI.Models"
+      Background="{ThemeResource SystemControlAcrylicElementBrush}"
+      xmlns:vm="using:DMO.ViewModels" mc:Ignorable="d">
+
+    <Page.Resources>
+        <converters:TopThicknessConverter x:Key="TopThicknessConverter"/>
+        <converters:StringEllipsisShortener x:Key="StringEllipsisShortener"/>
+        <converters:IsNotNullConverter x:Key="IsNotNullConverter" />
+        <converters:BooleanInverseConverter x:Key="BooleanInverseConverter" />
+    </Page.Resources>
+
+    <Page.DataContext>
+        <vm:AlternateDetailsPageViewModel x:Name="ViewModel" />
+    </Page.DataContext>
+
+    <SplitView x:Name="splitView" 
+               PaneBackground="{ThemeResource SystemControlAcrylicWindowBrush}" 
+               IsPaneOpen="{x:Bind ViewModel.InfoOpen, Mode=OneWay}"
+               OpenPaneLength="336" 
+               DisplayMode="Inline">
+        <SplitView.Pane>
+            <ScrollViewer>
+                <StackPanel Margin="{x:Bind ViewModel.TitleBarMargin, Converter={StaticResource TopThicknessConverter}, Mode=OneWay}"
+                        Spacing="28">
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="100"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Meme Info"
+                               FontSize="30"
+                               VerticalAlignment="Center"
+                               x:Name="PaneHeader"
+                               Margin="16,0,0,0"
+                               Style="{StaticResource NavigationViewItemHeaderTextStyle}"/>
+                        <Button x:Name="InfoCloseButton"
+                            Command="{x:Bind ViewModel.InfoCommand}"
+                            Style="{StaticResource ButtonRevealStyle}"
+                            Background="Transparent"
+                            Grid.Column="1"
+                            Width="80"
+                            Height="80"
+                            Padding="0"
+                            VerticalAlignment="Center"
+                            HorizontalAlignment="Center"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center">
+                            <TextBlock FontFamily="Segoe MDL2 Assets" 
+                                   Text="&#xE89F;"
+                                   FontSize="30"
+                                   RenderTransformOrigin="0.5,0.5">
+                                <TextBlock.Foreground>
+                                    <SolidColorBrush Color="{ThemeResource SystemAccentColor}" />
+                                </TextBlock.Foreground>
+                                <TextBlock.RenderTransform>
+                                    <RotateTransform Angle="180" />
+                                </TextBlock.RenderTransform>
+                            </TextBlock>
+                        </Button>
+                    </Grid>
+
+                    <StackPanel Margin="20, 0, 20, 0">
+                        <TextBlock Text="Filename" 
+                               Foreground="{StaticResource InfoHeaderTextColorBrush}"/>
+                        <controls:DetailedFileNameTextBox Text="{x:Bind ViewModel.MediaData.Title, Mode=TwoWay}"/>
+                    </StackPanel>
+
+                    <StackPanel Margin="20, 0, 20, 0">
+                        <TextBlock Text="Folder Path" 
+                               Foreground="{StaticResource InfoHeaderTextColorBrush}"/>
+                        <TextBlock Text="{x:Bind ViewModel.FolderPath, Mode=OneWay}"
+                                   IsTextSelectionEnabled="True"
+                                   TextWrapping="WrapWholeWords"/>
+                        <HyperlinkButton Command="{x:Bind ViewModel.OpenFolderCommand}">
+                            <HyperlinkButton.ContentTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="Open folder">
+                                        <TextBlock.Foreground>
+                                            <SolidColorBrush Color="{ThemeResource SystemAccentColor}" />
+                                        </TextBlock.Foreground>
+                                    </TextBlock>
+                                </DataTemplate>
+                            </HyperlinkButton.ContentTemplate>
+                        </HyperlinkButton>
+                    </StackPanel>
+
+                    <StackPanel Margin="20, 0, 20, 0">
+                        <TextBlock Text="Created" 
+                               Foreground="{StaticResource InfoHeaderTextColorBrush}"/>
+                        <TextBlock Text="{x:Bind ViewModel.Created, Mode=OneWay}"
+                               IsTextSelectionEnabled="True"/>
+                    </StackPanel>
+
+                    <StackPanel Margin="20, 0, 20, 0">
+                        <TextBlock Text="Added" 
+                               Foreground="{StaticResource InfoHeaderTextColorBrush}"/>
+                        <TextBlock Text="{x:Bind ViewModel.Added, Mode=OneWay}"
+                               IsTextSelectionEnabled="True"/>
+                    </StackPanel>
+
+                    <StackPanel Margin="20, 0, 20, 0">
+                        <TextBlock Text="Size" 
+                               Foreground="{StaticResource InfoHeaderTextColorBrush}"/>
+                        <TextBlock Text="{x:Bind ViewModel.Size, Mode=OneWay}"
+                               IsTextSelectionEnabled="True"/>
+                    </StackPanel>
+
+                    <StackPanel Margin="20, 0, 20, 0">
+                        <TextBlock Text="Dimensions" 
+                               Foreground="{StaticResource InfoHeaderTextColorBrush}"/>
+                        <TextBlock Text="{x:Bind ViewModel.Dimensions, Mode=OneWay}"
+                               IsTextSelectionEnabled="True"/>
+                    </StackPanel>
+
+                    <StackPanel Margin="20, 0, 20, 0">
+                        <TextBlock Text="Text" 
+                               Foreground="{StaticResource InfoHeaderTextColorBrush}"/>
+                        <TextBlock Text="{x:Bind ViewModel.Text, Mode=OneWay}"
+                               IsTextSelectionEnabled="True"
+                               TextWrapping="WrapWholeWords"/>
+                    </StackPanel>
+
+                    <StackPanel Margin="20, 0, 20, 0">
+                        <TextBlock Text="Entities" 
+                               Foreground="{StaticResource InfoHeaderTextColorBrush}"/>
+                        <ListView ItemsSource="{x:Bind ViewModel.Entities}">
+                            <ListView.ItemTemplate>
+                                <DataTemplate x:DataType="googleModels:WebEntity">
+                                    <TextBlock Text="{x:Bind Description, Mode=OneWay}"
+                                               IsTextSelectionEnabled="True"/>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                            </ListView>
+                    </StackPanel>
+
+                    <StackPanel Margin="20, 0, 20, 0"
+                                Visibility="{x:Bind ViewModel.LargerMedia, Mode=OneWay, Converter={StaticResource IsNotNullConverter}}">
+                        <TextBlock Text="Higher resolution version available online" 
+                                   TextWrapping="WrapWholeWords"
+                                   Foreground="{StaticResource InfoHeaderTextColorBrush}"/>
+                        <Button Command="{x:Bind ViewModel.DownloadAndCompareCommand, Mode=OneWay}"
+                                IsEnabled="{x:Bind ViewModel.IsDownloadingLarger, Mode=OneWay, Converter={StaticResource BooleanInverseConverter}}"
+                                Content="Download and compare"
+                                Margin="4"/>
+                    </StackPanel>
+
+                    <StackPanel Margin="20, 0, 20, 0">
+                        <TextBlock Text="Fully Matched Images Online" 
+                                   Visibility="{x:Bind ViewModel.FullyMatchedImagesContainsItems, Mode=OneWay}"
+                                   Foreground="{StaticResource InfoHeaderTextColorBrush}"/>
+                        <ListView ItemsSource="{x:Bind ViewModel.FullyMatchedImages}">
+                            <ListView.ItemTemplate>
+                                <DataTemplate x:DataType="googleModels:WebImage">
+                                    <HyperlinkButton NavigateUri="{x:Bind Url, Mode=OneWay}">
+                                        <TextBlock Text="{x:Bind Url, Mode=OneWay, Converter={StaticResource StringEllipsisShortener}}"/>
+                                    </HyperlinkButton>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </StackPanel>
+
+                    <StackPanel Margin="20, 0, 20, 0">
+                        <TextBlock Text="Partially Matched Images Online" 
+                                   Visibility="{x:Bind ViewModel.PartiallyMatchedImagesContainsItems, Mode=OneWay}"
+                                   Foreground="{StaticResource InfoHeaderTextColorBrush}"/>
+                        <ListView ItemsSource="{x:Bind ViewModel.PartiallyMatchedImages}">
+                            <ListView.ItemTemplate>
+                                <DataTemplate x:DataType="googleModels:WebImage">
+                                    <HyperlinkButton NavigateUri="{x:Bind Url, Mode=OneWay}">
+                                        <TextBlock Text="{x:Bind Url, Mode=OneWay, Converter={StaticResource StringEllipsisShortener}}"/>
+                                    </HyperlinkButton>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </StackPanel>
+
+                </StackPanel>
+            </ScrollViewer>
+        </SplitView.Pane>
+
+
+        <RelativePanel>
+
+            <!--<controls:GenericMediaDataElement x:Name="GenericMediaDataElement"
+                                              Margin="32"
+                                              RelativePanel.AlignVerticalCenterWithPanel="True"
+                                              RelativePanel.AlignHorizontalCenterWithPanel="True" 
+                                              MediaData="{x:Bind ViewModel.MediaData, Mode=OneWay}"/>-->
+
+            <Image Name="ImageElement"
+                   Margin="32"
+                   RelativePanel.AlignVerticalCenterWithPanel="True"
+                   RelativePanel.AlignHorizontalCenterWithPanel="True" Source="ms-appx:///Assets/unexpected.gif" />
+
+            <CommandBar x:Name="ToolBar"
+                        RelativePanel.AlignTopWithPanel="True"
+                        RelativePanel.AlignHorizontalCenterWithPanel="True"
+                        Margin="{x:Bind ViewModel.TitleBarMargin, Converter={StaticResource TopThicknessConverter}, Mode=OneWay}">
+                <AppBarButton Icon="ZoomIn" />
+                <AppBarButton Icon="Delete" />
+                <AppBarButton Command="{x:Bind ViewModel.InfoCommand}">
+                    <AppBarButton.Icon>
+                        <FontIcon Glyph="&#xE946;"/>
+                    </AppBarButton.Icon>
+                </AppBarButton>
+            </CommandBar>
+
+        </RelativePanel>
+
+    </SplitView>
+
+</Page>

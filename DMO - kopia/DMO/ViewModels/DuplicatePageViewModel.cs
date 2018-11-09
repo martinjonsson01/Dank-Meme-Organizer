@@ -1,6 +1,7 @@
 ﻿using DMO.Extensions;
 using DMO.Models;
 using DMO.Utility;
+using DMO.Utility.Logging;
 using DMO.Views;
 using DMO_Model.GoogleAPI.Models;
 using System;
@@ -82,9 +83,8 @@ namespace DMO.ViewModels
                     }
                     catch (Exception e)
                     {
-                        Debug.WriteLine("Failed to remove duplicate file from gallery and system because of exception:");
-                        Debug.WriteLine(e.Message);
-                        Debug.WriteLine(e.StackTrace);
+                        // Log Exception.
+                        LifecycleLog.Exception(e);
                     }
                 }
 

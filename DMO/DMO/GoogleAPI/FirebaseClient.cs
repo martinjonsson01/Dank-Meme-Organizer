@@ -94,7 +94,7 @@ namespace DMO.GoogleAPI
                     }
                 }
 
-                return false;
+                return firebaseSignInSuccess;
             }
             catch (Exception e)
             {

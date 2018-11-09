@@ -33,6 +33,12 @@ namespace DMO.ViewModels
             set => _settings.AutoPlayGifs = value;
         }
 
+        public uint MediaLoadBatchSize
+        {
+            get => _settings.MediaLoadBatchSize;
+            set => _settings.MediaLoadBatchSize = value;
+        }
+
         public StartupTaskState StartupTaskState => _startupTask?.State ?? StartupTaskState.Disabled;
         
         DelegateCommand _changeFolderCommand;
